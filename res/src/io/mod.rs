@@ -10,8 +10,8 @@ mod writer;
 #[cfg(feature = "writer")]
 pub use writer::*;
 
-use crate::ResourceUUID;
+use crate::ResourceChunkID;
 
-pub fn resource_uuid_to_filename(uuid: ResourceUUID) -> String {
-    format!("res{}.res", uuid)
+pub fn chunk_to_filename(chunk: ResourceChunkID) -> String {
+    format!("assets{}.res", chunk)
 }

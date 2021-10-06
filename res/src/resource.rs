@@ -15,10 +15,20 @@ pub struct Resource {
     pub uuid: ResourceUUID,
     pub ty: String,
     pub hash: String,
+    pub chunk: ResourceChunk,
     pub meta: Option<ResourceMeta>,
     pub deps: Vec<ResourceUUID>,
     pub subs: Vec<ResourceUUID>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
+pub struct ResourceChunk {
+    pub id: ResourceChunkID,
+    pub offset: u64,
+    pub size: u64,
+}
+
+pub type ResourceChunkID = u32;
 
 pub type ResourceUUID = NonZeroU64;
 

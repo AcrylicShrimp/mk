@@ -1,8 +1,9 @@
-use crate::{resource_uuid_to_filename, Resource, ResourcesMeta};
+use crate::{chunk_to_filename, Resource, ResourcesMeta};
 use bincode::{options, Error as BincodeError, Options};
 use downcast_rs::{impl_downcast, Downcast};
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs::OpenOptions;
 use std::io::Error as IOError;
 use std::path::Path;
 use std::sync::Arc;
@@ -65,7 +66,7 @@ impl ResourceLoader {
         self.decoders.insert(ty, decoder);
     }
 
-    pub async fn load(
+    pub fn load(
         &self,
         base_path: impl AsRef<Path>,
         res: &Resource,
@@ -75,8 +76,30 @@ impl ResourceLoader {
             .get(&res.ty)
             .ok_or_else(|| ResourceLoadError::UnknownResourceType)?;
 
-        let path = base_path.as_ref().join(resource_uuid_to_filename(res.uuid));
-        let content = read(&path)?;
+        let path = base_path.as_ref().join(chunk_to_filename(res.chunk.id));
+        let file = OpenOptions::new().read(true).open(&path)?;
+        let mut content = vec![0u8; res.chunk.size as usize];
+
+        #[cfg(target_family = "unix")]
+        {
+            use std::os::unix::prelude::FileExt;
+            file.read_exact_at(&mut content, res.chunk.offset)?;
+        }
+        #[cfg(target_family = "windows")]
+        {
+            use std::io::ErrorKind;
+            use std::os::windows::prelude::FileExt;
+            if file.seek_read(&mut content, res.chunk.offset)? != res.chunk.size {
+                return Err(ResourceLoadError::IOError(IOError::from(
+                    ErrorKind::UnexpectedEof,
+                )));
+            }
+        }
+        #[cfg(target_family = "wasm")]
+        {
+            use std::os::unix::prelude::FileExt;
+            file.read_exact_at(&mut content, res.chunk.offset)?;
+        }
 
         Ok(decoder.decode(&content)?)
     }
@@ -88,8 +111,6 @@ pub trait ResourceDecoder {
     fn decode(&self, content: &[u8]) -> Result<Arc<dyn BaseResource>, DecoderError>;
 }
 
-pub trait BaseResource: Downcast {
-    fn ty(&self) -> &'static str;
-}
+pub trait BaseResource: Downcast {}
 
 impl_downcast!(BaseResource);

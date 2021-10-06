@@ -12,5 +12,5 @@ downcast-rs = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"] }
 
 [features]
-reader = ["bincode", "downcast-rs"]
+loader = ["bincode", "downcast-rs"]
 writer = ["bincode", "downcast-rs"]

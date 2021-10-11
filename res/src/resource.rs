@@ -14,14 +14,25 @@ pub struct Resource {
     pub parent: Option<ResourceUUID>,
     pub uuid: ResourceUUID,
     pub ty: String,
-    pub hash: String,
-    pub chunk: ResourceChunk,
+    pub hash: ResourceHash,
+    pub chunks: Vec<ResourceChunk>,
     pub meta: Option<ResourceMeta>,
     pub deps: Vec<ResourceUUID>,
     pub subs: Vec<ResourceUUID>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ResourceHash {
+    pub hash: String,
+    pub algorithm: ResourceHashAlgorithm,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ResourceHashAlgorithm {
+    CRC32SHA256,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ResourceChunk {
     pub id: ResourceChunkID,
     pub offset: u64,

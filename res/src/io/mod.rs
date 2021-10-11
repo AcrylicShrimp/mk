@@ -1,7 +1,9 @@
-#[cfg(feature = "reader")]
+#[cfg(feature = "loader")]
 mod loader;
 
-#[cfg(feature = "reader")]
+use std::fs::File;
+
+#[cfg(feature = "loader")]
 pub use loader::*;
 
 #[cfg(feature = "writer")]
@@ -11,7 +13,31 @@ mod writer;
 pub use writer::*;
 
 use crate::ResourceChunkID;
+use std::io::Error as IOError;
 
-pub fn chunk_to_filename(chunk: ResourceChunkID) -> String {
+pub(crate) fn chunk_to_filename(chunk: ResourceChunkID) -> String {
     format!("assets{}.res", chunk)
+}
+
+pub(crate) fn read_file_all(file: &File, offset: u64, buffer: &mut [u8]) -> Result<(), IOError> {
+    #[cfg(target_family = "unix")]
+    {
+        use std::os::unix::prelude::FileExt;
+        file.read_exact_at(buffer, offset)?;
+    }
+    #[cfg(target_family = "windows")]
+    {
+        use std::io::ErrorKind;
+        use std::os::windows::prelude::FileExt;
+        if file.seek_read(buffer, offset)? != buffer.len() {
+            return Err(IOError::from(ErrorKind::UnexpectedEof));
+        }
+    }
+    #[cfg(target_family = "wasm")]
+    {
+        use std::os::unix::prelude::FileExt;
+        file.read_exact_at(buffer, offset)?;
+    }
+
+    Ok(())
 }

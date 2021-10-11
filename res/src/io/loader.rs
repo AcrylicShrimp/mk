@@ -1,3 +1,4 @@
+use crate::io::read_file_all;
 use crate::{chunk_to_filename, Resource, ResourcesMeta};
 use bincode::{options, Error as BincodeError, Options};
 use downcast_rs::{impl_downcast, Downcast};
@@ -74,41 +75,22 @@ impl ResourceLoader {
         let decoder = self
             .decoders
             .get(&res.ty)
-            .ok_or_else(|| ResourceLoadError::UnknownResourceType)?;
+            .ok_or(ResourceLoadError::UnknownResourceType)?;
 
         let path = base_path.as_ref().join(chunk_to_filename(res.chunk.id));
         let file = OpenOptions::new().read(true).open(&path)?;
         let mut content = vec![0u8; res.chunk.size as usize];
 
-        #[cfg(target_family = "unix")]
-        {
-            use std::os::unix::prelude::FileExt;
-            file.read_exact_at(&mut content, res.chunk.offset)?;
-        }
-        #[cfg(target_family = "windows")]
-        {
-            use std::io::ErrorKind;
-            use std::os::windows::prelude::FileExt;
-            if file.seek_read(&mut content, res.chunk.offset)? != res.chunk.size {
-                return Err(ResourceLoadError::IOError(IOError::from(
-                    ErrorKind::UnexpectedEof,
-                )));
-            }
-        }
-        #[cfg(target_family = "wasm")]
-        {
-            use std::os::unix::prelude::FileExt;
-            file.read_exact_at(&mut content, res.chunk.offset)?;
-        }
+        read_file_all(&file, res.chunk.offset, &mut content)?;
 
-        Ok(decoder.decode(&content)?)
+        Ok(decoder.decode(content)?)
     }
 }
 
 pub type DecoderError = Box<dyn Error>;
 
 pub trait ResourceDecoder {
-    fn decode(&self, content: &[u8]) -> Result<Arc<dyn BaseResource>, DecoderError>;
+    fn decode(&self, content: Vec<u8>) -> Result<Arc<dyn BaseResource>, DecoderError>;
 }
 
 pub trait BaseResource: Downcast {}

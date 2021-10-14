@@ -1,23 +1,25 @@
+use aes::cipher::generic_array::GenericArray;
+use aes::cipher::{FromBlockCipher, NewBlockCipher, StreamCipher};
+use aes::{Aes256, Aes256Ctr};
 use byteorder::{ByteOrder, LittleEndian};
 use crc32fast::Hasher as Crc32Hasher;
-use memmap2::Mmap;
+use memmap2::{Mmap, MmapOptions};
 use rayon::prelude::*;
 use sha256::digest_bytes as sha256_digest_bytes;
 use std::cmp::min;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::OpenOptions;
-use std::io::{Error as IOError, Write};
-use std::iter::FromIterator;
+use std::io::Error as IOError;
 use std::mem::size_of;
 use std::path::Path;
 
-use crate::io::read_file_all;
 use crate::{
     chunk_to_filename, Resource, ResourceChunk, ResourceHash, ResourceHashAlgorithm, ResourceMeta,
     ResourceUUID, ResourcesMeta,
 };
 
+#[derive(Debug)]
 pub enum ResourceWriteError {
     UnknownResourceType,
     IOError(IOError),
@@ -61,7 +63,8 @@ impl ResourceWriter {
     ) -> Result<ResourcesMeta, ResourceWriteError> {
         let resources = res
             .par_iter()
-            .map(|(ty, path)| {
+            .enumerate()
+            .map(|(index, (ty, path))| {
                 let encoder = self
                     .encoders
                     .get(ty.as_ref())
@@ -70,6 +73,7 @@ impl ResourceWriter {
                 let file = OpenOptions::new().read(true).open(path.as_ref())?;
                 let content = unsafe { Mmap::map(&file)? };
 
+                let uuid = unsafe { ResourceUUID::new_unchecked((index + 1) as u64) };
                 let hash = ResourceHash {
                     hash: {
                         let mut hasher = Crc32Hasher::new();
@@ -80,75 +84,96 @@ impl ResourceWriter {
 
                         sha256_digest_bytes(buffer)
                     },
-                    algorithm: ResourceHashAlgorithm::CRC32SHA256,
+                    algorithm: ResourceHashAlgorithm::CRC32LESHA256,
                 };
-                let encoded = encoder.encode(&content)?;
+                let encoded = encoder.encode(uuid, content)?;
 
-                Ok((hash, encoded))
+                Ok((uuid, hash, encoded))
             })
             .collect::<Result<Vec<_>, ResourceWriteError>>()?;
 
+        let key = GenericArray::from_slice(&[0u8; 32]);
+        let nonce = GenericArray::from_slice(&[0u8; 16]);
+        let mut cipher = Aes256Ctr::from_block_cipher(Aes256::new(key), nonce);
+
         let mut chunk = 0;
         let mut chunk_offset = 0;
+
+        let total_size = {
+            let mut size = 0;
+
+            for (_, _, encoded) in resources.iter() {
+                size += encoded.content.len() as u64;
+            }
+
+            size
+        };
+        let chunk_size = chunk_size.unwrap_or(total_size);
+
         let mut file = OpenOptions::new()
+            .read(true)
             .write(true)
             .create(true)
             .truncate(true)
             .open(base_path.as_ref().join(chunk_to_filename(chunk)))?;
-        const CHUNK_SIZE: usize = 1024 * 1024 * 512;
+        file.set_len(chunk_size)?;
+        let mut chunk_content = unsafe { MmapOptions::new().map_mut(&file) }?;
 
         let resources = resources
             .into_iter()
             .enumerate()
-            .map(|(index, (meta, content, hash))| {
+            .map(|(index, (uuid, hash, encoded))| {
                 let mut chunks = vec![];
                 let mut content_offset = 0;
 
-                while content_offset < content.len() {
-                    let len = min(content.len() - content_offset, CHUNK_SIZE - chunk_offset);
-                    file.write_all(&content[content_offset..content_offset + len])?;
-                    chunks.push(ResourceChunk {
-                        id: chunk,
-                        offset: chunk_offset as _,
-                        size: len as _,
-                    });
-                    chunk_offset += len;
-                    content_offset += len;
-
-                    if chunk_offset == CHUNK_SIZE {
+                while content_offset < encoded.content.len() {
+                    if chunk_offset == chunk_size {
                         chunk += 1;
                         chunk_offset = 0;
                         file = OpenOptions::new()
+                            .read(true)
                             .write(true)
                             .create(true)
                             .truncate(true)
                             .open(base_path.as_ref().join(chunk_to_filename(chunk)))?;
+                        file.set_len(min(total_size - chunk as u64 * chunk_size, chunk_size))?;
+                        chunk_content = unsafe { MmapOptions::new().map_mut(&file) }?;
                     }
+
+                    let len = min(
+                        encoded.content.len() - content_offset,
+                        (chunk_size - chunk_offset) as usize,
+                    );
+                    let range = &mut chunk_content[{
+                        let chunk_offset = chunk_offset as usize;
+                        chunk_offset..chunk_offset + len
+                    }];
+
+                    range.copy_from_slice(&encoded.content[..len]);
+                    cipher.apply_keystream(range);
+
+                    chunks.push(ResourceChunk {
+                        id: chunk,
+                        offset: chunk_offset,
+                        size: len as _,
+                    });
+                    chunk_offset += len as u64;
+                    content_offset += len;
                 }
 
                 Ok(Resource {
-                    parent: None,
-                    uuid: unsafe { ResourceUUID::new_unchecked((resources.len() + 1) as u64) },
+                    uuid,
                     ty: res[index].0.as_ref().to_owned(),
                     hash,
                     chunks,
-                    meta: Some(meta),
-                    deps: vec![],
-                    subs: vec![],
+                    meta: Some(encoded.meta),
                 })
             })
             .collect::<Result<Vec<_>, ResourceWriteError>>()?;
-        let mut resource_uuids = BTreeMap::from_iter(
-            resources
-                .iter()
-                .enumerate()
-                .map(|(index, resource)| (resource.uuid, index as _)),
-        );
 
         Ok(ResourcesMeta {
             version: 1,
             resources,
-            resource_uuids,
         })
     }
 }
@@ -156,16 +181,10 @@ impl ResourceWriter {
 pub type EncoderError = Box<dyn Error + Send + Sync>;
 
 pub trait ResourceEncoder: Send + Sync {
-    fn encode(&self, src: &[u8]) -> Result<EncodedResource, EncoderError>;
+    fn encode(&self, uuid: ResourceUUID, src: Mmap) -> Result<EncodedResource, EncoderError>;
 }
 
 pub struct EncodedResource {
     pub meta: ResourceMeta,
     pub content: Mmap,
-    pub subs: Vec<EncodedSubResource>,
-}
-
-pub struct EncodedSubResource {
-    pub ty: String,
-    pub meta: ResourceMeta,
 }

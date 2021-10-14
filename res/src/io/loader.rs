@@ -67,24 +67,24 @@ impl ResourceLoader {
         self.decoders.insert(ty, decoder);
     }
 
-    pub fn load(
-        &self,
-        base_path: impl AsRef<Path>,
-        res: &Resource,
-    ) -> Result<Arc<dyn BaseResource>, ResourceLoadError> {
-        let decoder = self
-            .decoders
-            .get(&res.ty)
-            .ok_or(ResourceLoadError::UnknownResourceType)?;
+    // pub fn load(
+    //     &self,
+    //     base_path: impl AsRef<Path>,
+    //     res: &Resource,
+    // ) -> Result<Arc<dyn BaseResource>, ResourceLoadError> {
+    //     let decoder = self
+    //         .decoders
+    //         .get(&res.ty)
+    //         .ok_or(ResourceLoadError::UnknownResourceType)?;
 
-        let path = base_path.as_ref().join(chunk_to_filename(res.chunk.id));
-        let file = OpenOptions::new().read(true).open(&path)?;
-        let mut content = vec![0u8; res.chunk.size as usize];
+    //     let path = base_path.as_ref().join(chunk_to_filename(res.chunk.id));
+    //     let file = OpenOptions::new().read(true).open(&path)?;
+    //     let mut content = vec![0u8; res.chunk.size as usize];
 
-        read_file_all(&file, res.chunk.offset, &mut content)?;
+    //     read_file_all(&file, res.chunk.offset, &mut content)?;
 
-        Ok(decoder.decode(content)?)
-    }
+    //     Ok(decoder.decode(content)?)
+    // }
 }
 
 pub type DecoderError = Box<dyn Error>;

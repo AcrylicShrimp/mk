@@ -1,11 +1,11 @@
 #[cfg(feature = "loader")]
 mod loader;
 
-use std::fs::File;
-
 #[cfg(feature = "loader")]
 pub use loader::*;
 
+#[cfg(feature = "writer")]
+pub mod encoder;
 #[cfg(feature = "writer")]
 mod writer;
 
@@ -13,6 +13,7 @@ mod writer;
 pub use writer::*;
 
 use crate::ResourceChunkID;
+use std::fs::File;
 use std::io::Error as IOError;
 
 pub(crate) fn chunk_to_filename(chunk: ResourceChunkID) -> String {

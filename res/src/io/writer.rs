@@ -7,6 +7,7 @@ use aes::cipher::{FromBlockCipher, NewBlockCipher, StreamCipher};
 use aes::{Aes256, Aes256Ctr};
 use byteorder::{ByteOrder, LittleEndian};
 use crc32fast::Hasher as Crc32Hasher;
+use hmac_sha512::HMAC;
 use memmap2::{Mmap, MmapOptions};
 use rand::prelude::*;
 use rand::{Error as RandError, Fill};
@@ -15,8 +16,8 @@ use sha256::digest_bytes as sha256_digest_bytes;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fs::{create_dir_all, remove_dir_all, File, OpenOptions};
-use std::io::Error as IOError;
+use std::fs::{create_dir_all, metadata, remove_dir_all, File, OpenOptions};
+use std::io::{Error as IOError, ErrorKind as IOErrorKind};
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
 
@@ -55,6 +56,7 @@ impl ResourceWriter {
 
     pub fn write(
         &self,
+        key: impl AsRef<[u8]>,
         chunk_size: Option<u64>,
         base_path: impl AsRef<Path>,
         res: &[(
@@ -99,6 +101,7 @@ impl ResourceWriter {
             })
             .collect::<Result<Vec<_>, ResourceWriteError>>()?;
 
+        let hmac = HMAC::mac(key.as_ref(), key.as_ref());
         let key = &mut [0u8; 32];
         let nonce = &mut [0u8; 16];
 
@@ -111,15 +114,69 @@ impl ResourceWriter {
                 .map_err(|err| ResourceWriteError::CipherKeyGenError(err))?;
         }
 
-        let key = GenericArray::from_slice(key);
-        let nonce = GenericArray::from_slice(nonce);
-        let mut cipher = Aes256Ctr::from_block_cipher(Aes256::new(key), nonce);
+        let secure_key = &mut key.clone();
+        let secure_nonce = &mut nonce.clone();
+
+        secure_key[0] ^= hmac[0];
+        secure_key[1] ^= hmac[1];
+        secure_key[2] ^= hmac[2];
+        secure_key[3] ^= hmac[3];
+        secure_key[4] ^= hmac[4];
+        secure_key[5] ^= hmac[5];
+        secure_key[6] ^= hmac[6];
+        secure_key[7] ^= hmac[7];
+        secure_key[8] ^= hmac[8];
+        secure_key[9] ^= hmac[9];
+        secure_key[10] ^= hmac[10];
+        secure_key[11] ^= hmac[11];
+        secure_key[12] ^= hmac[12];
+        secure_key[13] ^= hmac[13];
+        secure_key[14] ^= hmac[14];
+        secure_key[15] ^= hmac[15];
+        secure_key[16] ^= hmac[16];
+        secure_key[17] ^= hmac[17];
+        secure_key[18] ^= hmac[18];
+        secure_key[19] ^= hmac[19];
+        secure_key[20] ^= hmac[20];
+        secure_key[21] ^= hmac[21];
+        secure_key[22] ^= hmac[22];
+        secure_key[23] ^= hmac[23];
+        secure_key[24] ^= hmac[24];
+        secure_key[25] ^= hmac[25];
+        secure_key[26] ^= hmac[26];
+        secure_key[27] ^= hmac[27];
+        secure_key[28] ^= hmac[28];
+        secure_key[29] ^= hmac[29];
+        secure_key[30] ^= hmac[30];
+        secure_key[31] ^= hmac[31];
+
+        secure_nonce[0] ^= hmac[32];
+        secure_nonce[1] ^= hmac[33];
+        secure_nonce[2] ^= hmac[34];
+        secure_nonce[3] ^= hmac[35];
+        secure_nonce[4] ^= hmac[36];
+        secure_nonce[5] ^= hmac[37];
+        secure_nonce[6] ^= hmac[38];
+        secure_nonce[7] ^= hmac[39];
+        secure_nonce[8] ^= hmac[40];
+        secure_nonce[9] ^= hmac[41];
+        secure_nonce[10] ^= hmac[42];
+        secure_nonce[11] ^= hmac[43];
+        secure_nonce[12] ^= hmac[44];
+        secure_nonce[13] ^= hmac[45];
+        secure_nonce[14] ^= hmac[46];
+        secure_nonce[15] ^= hmac[47];
+
+        let mut cipher = Aes256Ctr::from_block_cipher(
+            Aes256::new(GenericArray::from_slice(key)),
+            GenericArray::from_slice(nonce),
+        );
 
         let mut chunk = 0;
         let mut chunk_offset = 0;
 
         let total_size = {
-            let mut size = 0;
+            let mut size = 48;
 
             for (_, _, encoded) in resources.iter() {
                 size += encoded.content.len() as u64;
@@ -149,53 +206,64 @@ impl ResourceWriter {
         let mut chunk_content = unsafe { MmapOptions::new().map_mut(&file) }
             .map_err(|err| ResourceWriteError::CannotMapChunkFile(err))?;
 
-        let mut write_to_chunk = || {};
+        let mut write_to_chunk = |content: &[u8],
+                                  apply_cipher: bool|
+         -> Result<Vec<ResourceChunk>, ResourceWriteError> {
+            let mut chunks = vec![];
+            let mut content_offset = 0;
+
+            while content_offset < content.len() {
+                if chunk_offset == chunk_size {
+                    chunk += 1;
+                    chunk_offset = 0;
+                    file = OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(base_path.as_ref().join(chunk_to_filename(chunk)))
+                        .map_err(|err| ResourceWriteError::CannotCreateChunkFile(err))?;
+                    file.set_len(min(total_size - chunk as u64 * chunk_size, chunk_size))
+                        .map_err(|err| ResourceWriteError::CannotCreateChunkFile(err))?;
+                    chunk_content = unsafe { MmapOptions::new().map_mut(&file) }
+                        .map_err(|err| ResourceWriteError::CannotMapChunkFile(err))?;
+                }
+
+                let len = min(
+                    content.len() - content_offset,
+                    (chunk_size - chunk_offset) as usize,
+                );
+                let range = &mut chunk_content[{
+                    let chunk_offset = chunk_offset as usize;
+                    chunk_offset..chunk_offset + len
+                }];
+
+                range.copy_from_slice(&content[..len]);
+
+                if apply_cipher {
+                    cipher.apply_keystream(range);
+                }
+
+                chunks.push(ResourceChunk {
+                    id: chunk,
+                    offset: chunk_offset,
+                    size: len as _,
+                });
+                chunk_offset += len as u64;
+                content_offset += len;
+            }
+
+            Ok(chunks)
+        };
+
+        write_to_chunk(secure_key, false)?;
+        write_to_chunk(secure_nonce, false)?;
 
         let resources = resources
             .into_iter()
             .enumerate()
             .map(|(index, (uuid, hash, encoded))| {
-                let mut chunks = vec![];
-                let mut content_offset = 0;
-
-                while content_offset < encoded.content.len() {
-                    if chunk_offset == chunk_size {
-                        chunk += 1;
-                        chunk_offset = 0;
-                        file = OpenOptions::new()
-                            .read(true)
-                            .write(true)
-                            .create(true)
-                            .truncate(true)
-                            .open(base_path.as_ref().join(chunk_to_filename(chunk)))
-                            .map_err(|err| ResourceWriteError::CannotCreateChunkFile(err))?;
-                        file.set_len(min(total_size - chunk as u64 * chunk_size, chunk_size))
-                            .map_err(|err| ResourceWriteError::CannotCreateChunkFile(err))?;
-                        chunk_content = unsafe { MmapOptions::new().map_mut(&file) }
-                            .map_err(|err| ResourceWriteError::CannotMapChunkFile(err))?
-                    }
-
-                    let len = min(
-                        encoded.content.len() - content_offset,
-                        (chunk_size - chunk_offset) as usize,
-                    );
-                    let range = &mut chunk_content[{
-                        let chunk_offset = chunk_offset as usize;
-                        chunk_offset..chunk_offset + len
-                    }];
-
-                    range.copy_from_slice(&encoded.content[..len]);
-                    cipher.apply_keystream(range);
-
-                    chunks.push(ResourceChunk {
-                        id: chunk,
-                        offset: chunk_offset,
-                        size: len as _,
-                    });
-                    chunk_offset += len as u64;
-                    content_offset += len;
-                }
-
+                let chunks = write_to_chunk(&encoded.content, true)?;
                 Ok(Resource {
                     uuid,
                     ty: res[index].0.as_ref().to_owned(),
@@ -237,7 +305,14 @@ pub struct ResourceEncoderDirectoryManagerImpl {
 
 impl ResourceEncoderDirectoryManagerImpl {
     pub fn from_base_dir(base_dir: &Path) -> Result<Self, IOError> {
-        remove_dir_all(base_dir)?;
+        if let Ok(meta) = metadata(base_dir) {
+            if meta.is_dir() {
+                remove_dir_all(base_dir)?;
+            } else {
+                return Err(IOError::from(IOErrorKind::AlreadyExists));
+            }
+        }
+
         create_dir_all(base_dir)?;
 
         let base_dir = base_dir.canonicalize()?;

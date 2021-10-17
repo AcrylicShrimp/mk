@@ -8,6 +8,8 @@ use aes::{Aes256, Aes256Ctr};
 use byteorder::{ByteOrder, LittleEndian};
 use crc32fast::Hasher as Crc32Hasher;
 use memmap2::{Mmap, MmapOptions};
+use rand::prelude::*;
+use rand::{Error as RandError, Fill};
 use rayon::prelude::*;
 use sha256::digest_bytes as sha256_digest_bytes;
 use std::cmp::min;
@@ -27,6 +29,7 @@ pub enum ResourceWriteError {
     CannotCreateChunkFile(IOError),
     CannotMapChunkFile(IOError),
     CannotCleanupTempDirectory(IOError),
+    CipherKeyGenError(RandError),
     EncoderError(EncoderError),
 }
 
@@ -96,8 +99,20 @@ impl ResourceWriter {
             })
             .collect::<Result<Vec<_>, ResourceWriteError>>()?;
 
-        let key = GenericArray::from_slice(&[0u8; 32]);
-        let nonce = GenericArray::from_slice(&[0u8; 16]);
+        let key = &mut [0u8; 32];
+        let nonce = &mut [0u8; 16];
+
+        {
+            let mut rng = thread_rng();
+            key.try_fill(&mut rng)
+                .map_err(|err| ResourceWriteError::CipherKeyGenError(err))?;
+            nonce
+                .try_fill(&mut rng)
+                .map_err(|err| ResourceWriteError::CipherKeyGenError(err))?;
+        }
+
+        let key = GenericArray::from_slice(key);
+        let nonce = GenericArray::from_slice(nonce);
         let mut cipher = Aes256Ctr::from_block_cipher(Aes256::new(key), nonce);
 
         let mut chunk = 0;
@@ -133,6 +148,8 @@ impl ResourceWriter {
             .map_err(|err| ResourceWriteError::CannotCreateChunkFile(err))?;
         let mut chunk_content = unsafe { MmapOptions::new().map_mut(&file) }
             .map_err(|err| ResourceWriteError::CannotMapChunkFile(err))?;
+
+        let mut write_to_chunk = || {};
 
         let resources = resources
             .into_iter()

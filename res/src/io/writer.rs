@@ -5,9 +5,9 @@ use crate::{
 use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{FromBlockCipher, NewBlockCipher, StreamCipher};
 use aes::{Aes256, Aes256Ctr};
+use argon2::{hash_raw, Config, Error as Argon2Error};
 use byteorder::{ByteOrder, LittleEndian};
 use crc32fast::Hasher as Crc32Hasher;
-use hmac_sha512::HMAC;
 use memmap2::{Mmap, MmapOptions};
 use rand::prelude::*;
 use rand::{Error as RandError, Fill};
@@ -31,6 +31,7 @@ pub enum ResourceWriteError {
     CannotMapChunkFile(IOError),
     CannotCleanupTempDirectory(IOError),
     CipherKeyGenError(RandError),
+    KeyEncryptError(Argon2Error),
     EncoderError(EncoderError),
 }
 
@@ -57,6 +58,7 @@ impl ResourceWriter {
     pub fn write(
         &self,
         key: impl AsRef<[u8]>,
+        salt: impl AsRef<[u8]>,
         chunk_size: Option<u64>,
         base_path: impl AsRef<Path>,
         res: &[(
@@ -101,7 +103,11 @@ impl ResourceWriter {
             })
             .collect::<Result<Vec<_>, ResourceWriteError>>()?;
 
-        let hmac = HMAC::mac(key.as_ref(), key.as_ref());
+        let mut config = Config::default();
+        config.hash_length = 48;
+        let hash = hash_raw(key.as_ref(), salt.as_ref(), &config)
+            .map_err(|err| ResourceWriteError::KeyEncryptError(err))?;
+
         let key = &mut [0u8; 32];
         let nonce = &mut [0u8; 16];
 
@@ -117,55 +123,55 @@ impl ResourceWriter {
         let secure_key = &mut key.clone();
         let secure_nonce = &mut nonce.clone();
 
-        secure_key[0] ^= hmac[0];
-        secure_key[1] ^= hmac[1];
-        secure_key[2] ^= hmac[2];
-        secure_key[3] ^= hmac[3];
-        secure_key[4] ^= hmac[4];
-        secure_key[5] ^= hmac[5];
-        secure_key[6] ^= hmac[6];
-        secure_key[7] ^= hmac[7];
-        secure_key[8] ^= hmac[8];
-        secure_key[9] ^= hmac[9];
-        secure_key[10] ^= hmac[10];
-        secure_key[11] ^= hmac[11];
-        secure_key[12] ^= hmac[12];
-        secure_key[13] ^= hmac[13];
-        secure_key[14] ^= hmac[14];
-        secure_key[15] ^= hmac[15];
-        secure_key[16] ^= hmac[16];
-        secure_key[17] ^= hmac[17];
-        secure_key[18] ^= hmac[18];
-        secure_key[19] ^= hmac[19];
-        secure_key[20] ^= hmac[20];
-        secure_key[21] ^= hmac[21];
-        secure_key[22] ^= hmac[22];
-        secure_key[23] ^= hmac[23];
-        secure_key[24] ^= hmac[24];
-        secure_key[25] ^= hmac[25];
-        secure_key[26] ^= hmac[26];
-        secure_key[27] ^= hmac[27];
-        secure_key[28] ^= hmac[28];
-        secure_key[29] ^= hmac[29];
-        secure_key[30] ^= hmac[30];
-        secure_key[31] ^= hmac[31];
+        secure_key[0] ^= hash[0];
+        secure_key[1] ^= hash[1];
+        secure_key[2] ^= hash[2];
+        secure_key[3] ^= hash[3];
+        secure_key[4] ^= hash[4];
+        secure_key[5] ^= hash[5];
+        secure_key[6] ^= hash[6];
+        secure_key[7] ^= hash[7];
+        secure_key[8] ^= hash[8];
+        secure_key[9] ^= hash[9];
+        secure_key[10] ^= hash[10];
+        secure_key[11] ^= hash[11];
+        secure_key[12] ^= hash[12];
+        secure_key[13] ^= hash[13];
+        secure_key[14] ^= hash[14];
+        secure_key[15] ^= hash[15];
+        secure_key[16] ^= hash[16];
+        secure_key[17] ^= hash[17];
+        secure_key[18] ^= hash[18];
+        secure_key[19] ^= hash[19];
+        secure_key[20] ^= hash[20];
+        secure_key[21] ^= hash[21];
+        secure_key[22] ^= hash[22];
+        secure_key[23] ^= hash[23];
+        secure_key[24] ^= hash[24];
+        secure_key[25] ^= hash[25];
+        secure_key[26] ^= hash[26];
+        secure_key[27] ^= hash[27];
+        secure_key[28] ^= hash[28];
+        secure_key[29] ^= hash[29];
+        secure_key[30] ^= hash[30];
+        secure_key[31] ^= hash[31];
 
-        secure_nonce[0] ^= hmac[32];
-        secure_nonce[1] ^= hmac[33];
-        secure_nonce[2] ^= hmac[34];
-        secure_nonce[3] ^= hmac[35];
-        secure_nonce[4] ^= hmac[36];
-        secure_nonce[5] ^= hmac[37];
-        secure_nonce[6] ^= hmac[38];
-        secure_nonce[7] ^= hmac[39];
-        secure_nonce[8] ^= hmac[40];
-        secure_nonce[9] ^= hmac[41];
-        secure_nonce[10] ^= hmac[42];
-        secure_nonce[11] ^= hmac[43];
-        secure_nonce[12] ^= hmac[44];
-        secure_nonce[13] ^= hmac[45];
-        secure_nonce[14] ^= hmac[46];
-        secure_nonce[15] ^= hmac[47];
+        secure_nonce[0] ^= hash[32];
+        secure_nonce[1] ^= hash[33];
+        secure_nonce[2] ^= hash[34];
+        secure_nonce[3] ^= hash[35];
+        secure_nonce[4] ^= hash[36];
+        secure_nonce[5] ^= hash[37];
+        secure_nonce[6] ^= hash[38];
+        secure_nonce[7] ^= hash[39];
+        secure_nonce[8] ^= hash[40];
+        secure_nonce[9] ^= hash[41];
+        secure_nonce[10] ^= hash[42];
+        secure_nonce[11] ^= hash[43];
+        secure_nonce[12] ^= hash[44];
+        secure_nonce[13] ^= hash[45];
+        secure_nonce[14] ^= hash[46];
+        secure_nonce[15] ^= hash[47];
 
         let mut cipher = Aes256Ctr::from_block_cipher(
             Aes256::new(GenericArray::from_slice(key)),

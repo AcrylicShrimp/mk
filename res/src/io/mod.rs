@@ -1,4 +1,6 @@
 #[cfg(feature = "loader")]
+pub mod decoder;
+#[cfg(feature = "loader")]
 mod loader;
 
 #[cfg(feature = "loader")]

@@ -13,6 +13,8 @@ pub struct Resource {
     pub uuid: ResourceUUID,
     pub ty: String,
     pub hash: ResourceHash,
+    pub cipher_offset: u64,
+    pub size: u64,
     pub chunks: Vec<ResourceChunk>,
     pub meta: Option<ResourceMeta>,
 }

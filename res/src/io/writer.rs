@@ -31,7 +31,7 @@ pub enum ResourceWriteError {
     CannotMapChunkFile(IOError),
     CannotCleanupTempDirectory(IOError),
     CipherKeyGenError(RandError),
-    KeyEncryptError(Argon2Error),
+    KeySaltHashError(Argon2Error),
     EncoderError(EncoderError),
 }
 
@@ -106,7 +106,7 @@ impl ResourceWriter {
         let mut config = Config::default();
         config.hash_length = 48;
         let hash = hash_raw(key.as_ref(), salt.as_ref(), &config)
-            .map_err(|err| ResourceWriteError::KeyEncryptError(err))?;
+            .map_err(|err| ResourceWriteError::KeySaltHashError(err))?;
 
         let key = &mut [0u8; 32];
         let nonce = &mut [0u8; 16];
@@ -180,6 +180,7 @@ impl ResourceWriter {
 
         let mut chunk = 0;
         let mut chunk_offset = 0;
+        let mut total_written = 0;
 
         let total_size = {
             let mut size = 48;
@@ -212,55 +213,62 @@ impl ResourceWriter {
         let mut chunk_content = unsafe { MmapOptions::new().map_mut(&file) }
             .map_err(|err| ResourceWriteError::CannotMapChunkFile(err))?;
 
-        let mut write_to_chunk = |content: &[u8],
-                                  apply_cipher: bool|
-         -> Result<Vec<ResourceChunk>, ResourceWriteError> {
-            let mut chunks = vec![];
-            let mut content_offset = 0;
+        let mut write_to_chunk =
+            |content: &[u8],
+             apply_cipher: bool|
+             -> Result<((u64, u64), Vec<ResourceChunk>), ResourceWriteError> {
+                let mut chunks = vec![];
+                let mut content_offset = 0;
 
-            while content_offset < content.len() {
-                if chunk_offset == chunk_size {
-                    chunk += 1;
-                    chunk_offset = 0;
-                    file = OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open(base_path.as_ref().join(chunk_to_filename(chunk)))
-                        .map_err(|err| ResourceWriteError::CannotCreateChunkFile(err))?;
-                    file.set_len(min(total_size - chunk as u64 * chunk_size, chunk_size))
-                        .map_err(|err| ResourceWriteError::CannotCreateChunkFile(err))?;
-                    chunk_content = unsafe { MmapOptions::new().map_mut(&file) }
-                        .map_err(|err| ResourceWriteError::CannotMapChunkFile(err))?;
+                while content_offset < content.len() {
+                    if chunk_offset == chunk_size {
+                        chunk += 1;
+                        chunk_offset = 0;
+                        file = OpenOptions::new()
+                            .read(true)
+                            .write(true)
+                            .create(true)
+                            .truncate(true)
+                            .open(base_path.as_ref().join(chunk_to_filename(chunk)))
+                            .map_err(|err| ResourceWriteError::CannotCreateChunkFile(err))?;
+                        file.set_len(min(total_size - chunk as u64 * chunk_size, chunk_size))
+                            .map_err(|err| ResourceWriteError::CannotCreateChunkFile(err))?;
+                        chunk_content = unsafe { MmapOptions::new().map_mut(&file) }
+                            .map_err(|err| ResourceWriteError::CannotMapChunkFile(err))?;
+                    }
+
+                    let len = min(
+                        content.len() - content_offset,
+                        (chunk_size - chunk_offset) as usize,
+                    );
+                    let range = &mut chunk_content[{
+                        let chunk_offset = chunk_offset as usize;
+                        chunk_offset..chunk_offset + len
+                    }];
+
+                    range.copy_from_slice(&content[..len]);
+
+                    if apply_cipher {
+                        cipher.apply_keystream(range);
+                    }
+
+                    chunks.push(ResourceChunk {
+                        id: chunk,
+                        offset: chunk_offset,
+                        size: len as _,
+                    });
+                    chunk_offset += len as u64;
+                    content_offset += len;
                 }
 
-                let len = min(
-                    content.len() - content_offset,
-                    (chunk_size - chunk_offset) as usize,
-                );
-                let range = &mut chunk_content[{
-                    let chunk_offset = chunk_offset as usize;
-                    chunk_offset..chunk_offset + len
-                }];
-
-                range.copy_from_slice(&content[..len]);
+                let cipher_offset_size = (total_written, content.len() as u64);
 
                 if apply_cipher {
-                    cipher.apply_keystream(range);
+                    total_written += cipher_offset_size.1;
                 }
 
-                chunks.push(ResourceChunk {
-                    id: chunk,
-                    offset: chunk_offset,
-                    size: len as _,
-                });
-                chunk_offset += len as u64;
-                content_offset += len;
-            }
-
-            Ok(chunks)
-        };
+                Ok((cipher_offset_size, chunks))
+            };
 
         write_to_chunk(secure_key, false)?;
         write_to_chunk(secure_nonce, false)?;
@@ -269,11 +277,13 @@ impl ResourceWriter {
             .into_iter()
             .enumerate()
             .map(|(index, (uuid, hash, encoded))| {
-                let chunks = write_to_chunk(&encoded.content, true)?;
+                let ((cipher_offset, size), chunks) = write_to_chunk(&encoded.content, true)?;
                 Ok(Resource {
                     uuid,
                     ty: res[index].0.as_ref().to_owned(),
                     hash,
+                    cipher_offset,
+                    size,
                     chunks,
                     meta: encoded.meta,
                 })

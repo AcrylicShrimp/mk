@@ -14,7 +14,7 @@ pub fn font_loader() -> AssetLoader<Font> {
         let path = base.join("fonts").join(path);
         let mut font_path = Err(IOError::new(IOErrorKind::NotFound, "cannot find a font"));
 
-        for ext in &["ttf", "ttc", "otf"] {
+        for ext in ["ttf", "ttc", "otf"] {
             let path = path.with_extension(ext);
             match fs_metadata(&path) {
                 Ok(metadata) => {

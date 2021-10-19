@@ -72,7 +72,7 @@ pub fn lua_api_sprite_atlas(lua: &Lua) -> LuaResult<LuaTable> {
         LuaValue::Function(lua.create_function(move |lua, path: String| {
             let sprite_atlas = use_context()
                 .asset_mgr()
-                .load::<SpriteAtlas, _>(path)
+                .load(path)
                 .map_err(|err| err.to_lua_err())?;
 
             SpriteAtlasUserData::from(sprite_atlas).to_lua(lua)

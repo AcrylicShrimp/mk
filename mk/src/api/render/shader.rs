@@ -16,7 +16,7 @@ pub fn lua_api_shader(lua: &Lua) -> LuaResult<LuaTable> {
         LuaValue::Function(lua.create_function(move |lua, path: String| {
             let shader = use_context()
                 .asset_mgr()
-                .load::<Shader, _>(path)
+                .load(path)
                 .map_err(|err| err.to_lua_err())?;
 
             ShaderUserData::from(shader).to_lua(lua)

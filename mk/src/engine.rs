@@ -26,12 +26,12 @@ use glutin::{ContextBuilder, GlProfile};
 use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 
-pub fn run<P1: Into<PathBuf>, P2: AsRef<Path>>(
+pub fn run(
     title: &str,
     width: u32,
     height: u32,
-    asset_base: P1,
-    entry_script_path: P2,
+    asset_base: impl Into<PathBuf>,
+    entry_script_path: impl AsRef<Path>,
 ) -> Result<(), EngineError> {
     let event_loop = EventLoop::new();
     let gfx_context = ContextBuilder::new()
@@ -223,8 +223,8 @@ pub fn run<P1: Into<PathBuf>, P2: AsRef<Path>>(
     {
         emit_diagnostic_debug!(format!("spawning test objects."));
 
-        let shader = rest.asset_mgr().load::<Shader, _>("sprite").unwrap();
-        let sprite = rest.asset_mgr().load::<Sprite, _>("home").unwrap();
+        let shader = rest.asset_mgr().load("sprite").unwrap();
+        let sprite = rest.asset_mgr().load("home").unwrap();
 
         let mut world = rest.world_mut();
         let entity = world.push(());

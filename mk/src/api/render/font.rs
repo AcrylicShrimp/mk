@@ -22,7 +22,7 @@ pub fn lua_api_font(lua: &Lua) -> LuaResult<LuaTable> {
 fn lua_api_font_load(_lua: &Lua, path: String) -> LuaResult<FontUserData> {
     let font = use_context()
         .asset_mgr()
-        .load::<Font, _>(path)
+        .load(path)
         .map_err(|err| err.to_lua_err())?;
 
     Ok(FontUserData::from(font))

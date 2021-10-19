@@ -99,7 +99,7 @@ pub fn lua_api_sprite(lua: &Lua) -> LuaResult<LuaTable> {
         LuaValue::Function(lua.create_function(move |lua, path: String| {
             let sprite = use_context()
                 .asset_mgr()
-                .load::<Sprite, _>(path)
+                .load(path)
                 .map_err(|err| err.to_lua_err())?;
 
             SpriteUserData::from(sprite).to_lua(lua)

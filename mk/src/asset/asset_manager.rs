@@ -31,7 +31,7 @@ impl AssetManager {
     }
 
     // TODO: Provide async-way to load assets.
-    pub fn load<T, P: AsRef<Path>>(&self, path: P) -> Result<Arc<T>, AssetLoadError>
+    pub fn load<T>(&self, path: impl AsRef<Path>) -> Result<Arc<T>, AssetLoadError>
     where
         T: 'static + Debug + Any + Send + Sync,
     {

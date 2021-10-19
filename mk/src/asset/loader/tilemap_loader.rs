@@ -47,7 +47,7 @@ pub fn tilemap_loader() -> AssetLoader<Tilemap> {
             return Err(AssetLoadError::from("tileset's firstgid must be 1"));
         }
 
-        let palette = asset_mgr.load::<SpriteAtlasGrid, _>(&tilemap_json.tilesets[0].source)?;
+        let palette = asset_mgr.load(&tilemap_json.tilesets[0].source)?;
 
         Ok(Tilemap {
             tile_width: tilemap_json.tilewidth as f32,

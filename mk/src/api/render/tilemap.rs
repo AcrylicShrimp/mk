@@ -49,7 +49,7 @@ pub fn lua_api_tilemap(lua: &Lua) -> LuaResult<LuaTable> {
         LuaValue::Function(lua.create_function(move |lua, path: String| {
             let tilemap = use_context()
                 .asset_mgr()
-                .load::<Tilemap, _>(path)
+                .load(path)
                 .map_err(|err| err.to_lua_err())?;
 
             TilemapUserData::from(tilemap).to_lua(lua)

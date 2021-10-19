@@ -54,7 +54,7 @@ pub fn lua_api_sprite_atlas_grid(lua: &Lua) -> LuaResult<LuaTable> {
         LuaValue::Function(lua.create_function(move |lua, path: String| {
             let sprite_atlas_grid = use_context()
                 .asset_mgr()
-                .load::<SpriteAtlasGrid, _>(path)
+                .load(path)
                 .map_err(|err| err.to_lua_err())?;
 
             SpriteAtlasGridUserData::from(sprite_atlas_grid).to_lua(lua)

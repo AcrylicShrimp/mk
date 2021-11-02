@@ -1,4 +1,4 @@
-use crate::animation::{AnimationKeyFrame, AnimationTimeLine, AnimationValue, Interpolatable};
+use crate::animation::{AnimationKeyFrame, AnimationTimeLine, Interpolatable};
 use crate::component::*;
 use crate::time::TimeManager;
 use crate::transform::TransformManager;
@@ -76,66 +76,44 @@ pub fn animate_sigle_animations(
 
                     match time_line.field.as_str() {
                         "position.x" => {
-                            if let AnimationValue::Float(from) = &key_frame.from {
-                                if let AnimationValue::Float(to) = &key_frame.to {
-                                    transform.position.x = <f64 as Interpolatable>::interpolate(
-                                        *from,
-                                        *to,
-                                        normalized_time_in_key_frame,
-                                    )
-                                        as _;
-                                    transform.mark_as_dirty();
-                                }
-                            }
+                            transform.position.x = <f64 as Interpolatable>::interpolate(
+                                key_frame.from.as_float(),
+                                key_frame.to.as_float(),
+                                normalized_time_in_key_frame,
+                            ) as _;
+                            transform.mark_as_dirty();
                         }
                         "position.y" => {
-                            if let AnimationValue::Float(from) = &key_frame.from {
-                                if let AnimationValue::Float(to) = &key_frame.to {
-                                    transform.position.y = <f64 as Interpolatable>::interpolate(
-                                        *from,
-                                        *to,
-                                        normalized_time_in_key_frame,
-                                    )
-                                        as _;
-                                    transform.mark_as_dirty();
-                                }
-                            }
+                            transform.position.y = <f64 as Interpolatable>::interpolate(
+                                key_frame.from.as_float(),
+                                key_frame.to.as_float(),
+                                normalized_time_in_key_frame,
+                            ) as _;
+                            transform.mark_as_dirty();
                         }
                         "scale.x" => {
-                            if let AnimationValue::Float(from) = &key_frame.from {
-                                if let AnimationValue::Float(to) = &key_frame.to {
-                                    transform.scale.x = <f64 as Interpolatable>::interpolate(
-                                        *from,
-                                        *to,
-                                        normalized_time_in_key_frame,
-                                    ) as _;
-                                    transform.mark_as_dirty();
-                                }
-                            }
+                            transform.scale.x = <f64 as Interpolatable>::interpolate(
+                                key_frame.from.as_float(),
+                                key_frame.to.as_float(),
+                                normalized_time_in_key_frame,
+                            ) as _;
+                            transform.mark_as_dirty();
                         }
                         "scale.y" => {
-                            if let AnimationValue::Float(from) = &key_frame.from {
-                                if let AnimationValue::Float(to) = &key_frame.to {
-                                    transform.scale.y = <f64 as Interpolatable>::interpolate(
-                                        *from,
-                                        *to,
-                                        normalized_time_in_key_frame,
-                                    ) as _;
-                                    transform.mark_as_dirty();
-                                }
-                            }
+                            transform.scale.y = <f64 as Interpolatable>::interpolate(
+                                key_frame.from.as_float(),
+                                key_frame.to.as_float(),
+                                normalized_time_in_key_frame,
+                            ) as _;
+                            transform.mark_as_dirty();
                         }
                         "angle" => {
-                            if let AnimationValue::Float(from) = &key_frame.from {
-                                if let AnimationValue::Float(to) = &key_frame.to {
-                                    transform.angle = <f64 as Interpolatable>::interpolate(
-                                        *from,
-                                        *to,
-                                        normalized_time_in_key_frame,
-                                    ) as _;
-                                    transform.mark_as_dirty();
-                                }
-                            }
+                            transform.angle = <f64 as Interpolatable>::interpolate(
+                                key_frame.from.as_float(),
+                                key_frame.to.as_float(),
+                                normalized_time_in_key_frame,
+                            ) as _;
+                            transform.mark_as_dirty();
                         }
                         _ => {}
                     }

@@ -1,18 +1,20 @@
-#[cfg(feature = "loader")]
-pub mod decoder;
-#[cfg(feature = "loader")]
-mod loader;
+#[cfg(feature = "asset_loader")]
+pub mod asset_decoder;
+#[cfg(feature = "asset_loader")]
+pub mod asset_loader;
 
-#[cfg(feature = "loader")]
-pub use loader::*;
+#[cfg(feature = "fs_loader")]
+pub mod fs_decoder;
+#[cfg(feature = "fs_loader")]
+pub mod fs_loader;
+
+#[cfg(feature = "meta_loader")]
+pub mod meta_loader;
 
 #[cfg(feature = "writer")]
 pub mod encoder;
 #[cfg(feature = "writer")]
-mod writer;
-
-#[cfg(feature = "writer")]
-pub use writer::*;
+pub mod writer;
 
 use crate::ResourceChunkID;
 use std::fs::File;

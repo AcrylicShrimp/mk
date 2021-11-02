@@ -302,6 +302,7 @@ impl ResourceWriter {
 }
 
 pub trait ResourceEncoder: Send + Sync {
+    fn ty(&self) -> &str;
     fn encode(
         &self,
         dir_mgr: &dyn ResourceEncoderDirectoryManager,

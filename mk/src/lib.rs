@@ -9,6 +9,7 @@ mod engine_error;
 pub mod event;
 pub mod input;
 pub mod render;
+pub mod res;
 pub mod structure;
 pub mod system;
 pub mod time;

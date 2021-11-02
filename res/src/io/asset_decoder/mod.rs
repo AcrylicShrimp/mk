@@ -8,11 +8,19 @@ pub struct BrotliDecoderOutput {
     pub content: Vec<u8>,
 }
 
-impl BaseResource for BrotliDecoderOutput {}
+impl BaseResource for BrotliDecoderOutput {
+    fn ty(&self) -> &str {
+        return "text";
+    }
+}
 
 pub struct BrotliDecoder;
 
 impl ResourceDecoder for BrotliDecoder {
+    fn ty(&self) -> &str {
+        return "text";
+    }
+
     fn decode(&self, content: Vec<u8>) -> Result<Arc<dyn BaseResource>, DecoderError> {
         let mut result = vec![];
 

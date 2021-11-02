@@ -25,6 +25,10 @@ impl Default for BrotliEncoder {
 }
 
 impl ResourceEncoder for BrotliEncoder {
+    fn ty(&self) -> &str {
+        return "text";
+    }
+
     fn encode(
         &self,
         dir_mgr: &dyn ResourceEncoderDirectoryManager,

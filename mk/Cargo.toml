@@ -8,7 +8,7 @@ authors = ["AcrylicShrimp <led789zxpp@naver.com>"]
 
 [dependencies]
 render = { path = "../render" }
-res = { path = "../res", features = ["loader"] }
+res = { path = "../res" }
 
 # Third parties
 bitvec = { version = "0.22" }
@@ -28,3 +28,9 @@ parking_lot = { version = "0.11" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 # wrapped2d = { version = "0.4" }
+
+[features]
+default = ["use_fs_loader"]
+use_fs_loader = ["res/fs_loader"]
+asset_loader = ["res/asset_loader", "res/meta_loader"]
+fs_loader = ["res/fs_loader"]

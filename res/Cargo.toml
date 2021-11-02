@@ -21,5 +21,7 @@ serde = { version = "1", features = ["derive"] }
 sha256 = { version = "1", optional = true }
 
 [features]
-loader = ["aes", "bincode", "brotli", "downcast-rs", "rust-argon2"]
+asset_loader = ["aes", "bincode", "brotli", "downcast-rs", "rust-argon2"]
+fs_loader = ["bincode", "brotli", "downcast-rs"]
+meta_loader = ["bincode", "brotli", "downcast-rs"]
 writer = ["aes", "bincode", "brotli", "byteorder", "crc32fast", "downcast-rs", "memmap2", "rand", "rayon", "rust-argon2", "sha256"]

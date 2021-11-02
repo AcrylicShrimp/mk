@@ -221,56 +221,6 @@ pub fn run(
     }
 
     {
-        emit_diagnostic_debug!(format!("spawning test objects."));
-
-        let shader = rest.asset_mgr().load("sprite").unwrap();
-        let sprite = rest.asset_mgr().load("home").unwrap();
-
-        let mut world = rest.world_mut();
-        let entity = world.push(());
-        let mut entry = world.entry(entity).unwrap();
-
-        entry.add_component(Transform::new(rest.transform_mgr_mut().alloc(entity)));
-        entry.add_component(SpriteRenderer::new(shader, SpriteType::Sprite(sprite)));
-        entry.add_component(SingleAnimator {
-            is_pong: false,
-            time: 0f32,
-            speed: 1f32,
-            animation: Some(Animation {
-                time_lines: vec![
-                    AnimationTimeLine {
-                        key_frames: vec![AnimationKeyFrame {
-                            begin: 0f32,
-                            end: 0.5f32,
-                            from: AnimationValue::Float(0f64),
-                            to: AnimationValue::Float(100f64),
-                            easing: AnimationEasing::Linear,
-                        }],
-                        transform: None,
-                        component: "transform".to_owned(),
-                        field: "position.x".to_owned(),
-                    },
-                    AnimationTimeLine {
-                        key_frames: vec![AnimationKeyFrame {
-                            begin: 0.75f32,
-                            end: 1f32,
-                            from: AnimationValue::Float(0f64),
-                            to: AnimationValue::Float(100f64),
-                            easing: AnimationEasing::Linear,
-                        }],
-                        transform: None,
-                        component: "transform".to_owned(),
-                        field: "angle".to_owned(),
-                    },
-                ],
-                duration: 2f32,
-                looping: true,
-                pingpong: true,
-            }),
-        });
-    }
-
-    {
         emit_diagnostic_info!(format!("executing entry script."));
 
         let path = entry_script_path.as_ref();

@@ -13,32 +13,6 @@ use std::io::Error as IOError;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-pub enum MetaLoadError {
-    BincodeError(BincodeError),
-    UnsupportedVersion,
-}
-
-impl From<BincodeError> for MetaLoadError {
-    fn from(err: BincodeError) -> Self {
-        Self::BincodeError(err)
-    }
-}
-
-pub fn load_resource_meta(meta: &[u8]) -> Result<ResourcesMeta, MetaLoadError> {
-    let meta: ResourcesMeta = options()
-        .with_no_limit()
-        .with_little_endian()
-        .with_varint_encoding()
-        .reject_trailing_bytes()
-        .deserialize(meta)?;
-
-    if meta.version != 1 {
-        return Err(MetaLoadError::UnsupportedVersion);
-    }
-
-    Ok(meta)
-}
-
 #[derive(Debug)]
 pub enum ResourceLoadError {
     UnknownResourceType,
@@ -74,7 +48,10 @@ impl ResourceLoader {
         salt: impl AsRef<[u8]>,
         base_path: impl AsRef<Path>,
     ) -> Result<Self, ResourceLoadError> {
-        let base_path = base_path.as_ref().canonicalize()?;
+        let base_path = base_path
+            .as_ref()
+            .canonicalize()
+            .map_err(|err| ResourceLoadError::BasePathNotFound(err))?;
         let first_chunk = OpenOptions::new()
             .read(true)
             .open(base_path.join(chunk_to_filename(0)))?;
@@ -143,8 +120,8 @@ impl ResourceLoader {
         })
     }
 
-    pub fn add_decoder(&mut self, ty: String, decoder: Box<dyn ResourceDecoder>) {
-        self.decoders.insert(ty, decoder);
+    pub fn add_decoder(&mut self, decoder: Box<dyn ResourceDecoder>) {
+        self.decoders.insert(decoder.ty().to_owned(), decoder);
     }
 
     pub fn load(&self, res: &Resource) -> Result<Arc<dyn BaseResource>, ResourceLoadError> {
@@ -184,9 +161,12 @@ impl ResourceLoader {
 pub type DecoderError = Box<dyn Error>;
 
 pub trait ResourceDecoder {
+    fn ty(&self) -> &str;
     fn decode(&self, content: Vec<u8>) -> Result<Arc<dyn BaseResource>, DecoderError>;
 }
 
-pub trait BaseResource: Downcast {}
+pub trait BaseResource: Downcast {
+    fn ty(&self) -> &str;
+}
 
 impl_downcast!(BaseResource);

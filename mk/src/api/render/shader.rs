@@ -1,8 +1,33 @@
+use std::sync::Arc;
+
 use crate::api::use_context;
 use crate::arc_user_data;
 use crate::render::*;
 use mlua::prelude::*;
 use mlua::UserData;
+
+#[derive(Debug, Clone)]
+pub struct ArcShaderWrapper(pub Arc<Shader>);
+
+impl From<Arc<Shader>> for ArcShaderWrapper {
+    fn from(shader: Arc<Shader>) -> Self {
+        Self(shader)
+    }
+}
+
+impl From<ArcShaderWrapper> for Arc<Shader> {
+    fn from(shader: ArcShaderWrapper) -> Self {
+        shader.0
+    }
+}
+
+impl<'lua> mlua::ToLua<'lua> for ArcShaderWrapper {
+    fn to_lua(self, _lua: &'lua Lua) -> mlua::Result<mlua::Value<'lua>> {
+        Ok(mlua::Value::LightUserData(mlua::LightUserData(
+            Arc::into_raw(self.0) as _,
+        )))
+    }
+}
 
 arc_user_data!(Shader => ShaderUserData);
 

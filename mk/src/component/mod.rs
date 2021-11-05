@@ -1,3 +1,29 @@
+pub trait Component {
+    fn ty(&self) -> &'static str;
+    fn animate(
+        &mut self,
+        _time_line: &crate::animation::AnimationTimeLine,
+        _key_frame: &crate::animation::AnimationKeyFrame,
+        _normalized_time_in_key_frame: f32,
+    ) {
+    }
+}
+
+use component_macros::*;
+
+#[derive(Component)]
+pub struct Struct {
+    #[lua(get = "x", set = "x")]
+    #[animate(field = "position.x", ty = "integer")]
+    pub x: f32,
+    #[lua(get = "y", set = "y")]
+    #[animate(field = "position.y", ty = "float")]
+    pub y: f32,
+    #[lua(get = "z", set = "z")]
+    #[animate(field = "position.z", ty = "float")]
+    pub z: f32,
+}
+
 mod camera;
 mod diagnostic;
 mod glyph_renderer;

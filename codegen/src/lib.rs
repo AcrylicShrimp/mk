@@ -183,7 +183,7 @@ pub fn animation_derive(item: TokenStream) -> TokenStream {
     }
 
     let expanded = quote! {
-        impl Animate for #name {
+        impl crate::component::Animate for #name {
             fn ty(&self) -> &'static str {
                 #name_snake
             }
@@ -213,10 +213,11 @@ pub fn animation_derive(item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(LuaComponent, attributes(hidden, readonly))]
+#[proc_macro_derive(LuaComponent, attributes(lua_field, lua_hidden, lua_readonly))]
 #[proc_macro_error]
 pub fn lua_component_derive(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
+    let span = input.span();
     let data = if let Data::Struct(data) = input.data {
         data
     } else {
@@ -226,6 +227,7 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
     let name = input.ident;
     let type_name = format!("component:{}", name);
     let wrapper_name = format_ident!("LuaWrapper{}", name);
+    let mut field_index = 0;
     let mut fields = vec![];
     let mut field_names = vec![];
     let mut non_readonly_fields = vec![];
@@ -233,70 +235,109 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
     let mut non_readonly_field_types = vec![];
 
     'field: for field in &data.fields {
+        let mut field_name = None;
         let mut readonly = false;
 
         for attr in &field.attrs {
             if let Some(ident) = attr.path.get_ident() {
-                if ident == "hidden" {
+                if ident == "lua_hidden" {
                     continue 'field;
-                } else if ident == "readonly" {
+                }
+
+                if ident == "lua_field" {
+                    field_name = Some(format_ident!(
+                        "{}",
+                        attr.parse_args::<LitStr>().unwrap_or_abort().value()
+                    ));
+                }
+
+                if ident == "lua_readonly" {
                     readonly = true;
                 }
             }
         }
 
-        let field_name = match &field.ident {
-            Some(ident) => ident,
+        let field_ref = match &field.ident {
+            Some(ident) => FieldRef::Ident(ident.clone()),
             None => {
-                abort!(
-                    field.span(),
-                    "unnamed field detected; all field should have a name",
-                );
+                let index = Index::from(field_index);
+                field_index += 1;
+                FieldRef::Index(index)
             }
         };
+        let field_name = match field_name.as_ref() {
+            Some(ident) => ident,
+            None => match &field.ident {
+                Some(ident) => ident,
+                None => {
+                    continue 'field;
+                }
+            },
+        };
 
-        fields.push(field_name.clone());
+        fields.push(field_ref.clone());
         field_names.push(field_name.to_string());
 
         if !readonly {
-            non_readonly_fields.push(field_name.clone());
+            non_readonly_fields.push(field_ref);
             non_readonly_field_names.push(field_name.to_string());
             non_readonly_field_types.push(field.ty.clone());
         }
     }
 
+    if fields.is_empty() {
+        abort!(span, "the struct {} has no fields no expose", name);
+    }
+
     let field_impls = quote! {
-        #(
-            #field_names => {
-                let mut world = crate::api::use_context().world_mut();
-                let entry = match world.entry(this.0) {
-                    Some(entry) => entry,
-                    None => return Ok(mlua::Value::Nil),
-                };
-                let this = match entry.get_component::<#name>() {
-                    Ok(this) => this,
-                    Err(_) => return Ok(mlua::Value::Nil),
-                };
-                this.#fields.to_lua(lua)
-            }
-        )*
+        methods.add_meta_method(
+            mlua::MetaMethod::Index,
+            |lua, this, index: String| match index.as_str() {
+                "_type" => #type_name.to_lua(lua),
+                #(
+                    #field_names => {
+                        let mut world = crate::api::use_context().world_mut();
+                        let entry = match world.entry(this.0) {
+                            Some(entry) => entry,
+                            None => return Ok(mlua::Value::Nil),
+                        };
+                        let this = match entry.get_component::<#name>() {
+                            Ok(this) => this,
+                            Err(_) => return Ok(mlua::Value::Nil),
+                        };
+                        this.#fields.to_lua(lua)
+                    }
+                )*
+                _ => Err(format!("the type {} has no such field {}", #type_name, index).to_lua_err()),
+            },
+        );
     };
-    let non_readonly_field_impls = quote! {
-        #(
-            #non_readonly_field_names => {
-                let mut world = crate::api::use_context().world_mut();
-                let mut entry = match world.entry(this.0) {
-                    Some(entry) => entry,
-                    None => return Err(format!("the type {} used invalid entity id {:?}", #type_name, this.0).to_lua_err()),
-                };
-                let this = match entry.get_component_mut::<#name>() {
-                    Ok(this) => this,
-                    Err(_) => return Err(format!("the entity id {:?} does not contains the type {}", this.0, #type_name).to_lua_err()),
-                };
-                this.#non_readonly_fields = <#non_readonly_field_types as mlua::FromLua>::from_lua(value, lua)?;
-                Ok(())
-            }
-        )*
+    let non_readonly_field_impls = if non_readonly_fields.is_empty() {
+        QuoteTokenStream::new()
+    } else {
+        quote! {
+            methods.add_meta_method(
+                mlua::MetaMethod::NewIndex,
+                |lua, this, (index, value): (String, mlua::Value)| match index.as_str() {
+                    #(
+                        #non_readonly_field_names => {
+                            let mut world = crate::api::use_context().world_mut();
+                            let mut entry = match world.entry(this.0) {
+                                Some(entry) => entry,
+                                None => return Err(format!("the type {} used invalid entity id {:?}", #type_name, this.0).to_lua_err()),
+                            };
+                            let this = match entry.get_component_mut::<#name>() {
+                                Ok(this) => this,
+                                Err(_) => return Err(format!("the entity id {:?} does not contains the type {}", this.0, #type_name).to_lua_err()),
+                            };
+                            this.#non_readonly_fields = <#non_readonly_field_types as mlua::FromLua>::from_lua(value, lua)?;
+                            Ok(())
+                        }
+                    )*
+                    _ => Err(format!("the type {} has no such field {}", #type_name, index).to_lua_err()),
+                },
+            );
+        }
     };
 
     let expanded = quote! {
@@ -332,21 +373,10 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
 
         impl mlua::UserData for #wrapper_name {
             fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
-                methods.add_meta_method(
-                    mlua::MetaMethod::Index,
-                    |lua, this, index: String| match index.as_str() {
-                        "_type" => #type_name.to_lua(lua),
-                        #field_impls
-                        _ => Err(format!("the type {} has no such field {}", #type_name, index).to_lua_err()),
-                    },
-                );
-                methods.add_meta_method(
-                    MetaMethod::NewIndex,
-                    |lua, this, (index, value): (String, LuaValue)| match index.as_str() {
-                        #non_readonly_field_impls
-                        _ => Err(format!("the type {} has no such field {}", #type_name, index).to_lua_err()),
-                    },
-                );
+                use mlua::{ExternalError, ToLua};
+
+                #field_impls
+                #non_readonly_field_impls
             }
         }
     };

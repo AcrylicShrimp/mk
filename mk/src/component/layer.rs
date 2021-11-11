@@ -1,5 +1,7 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Layer(u64);
+use codegen::{Animation, LuaComponent};
+
+#[derive(Animation, LuaComponent, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Layer(#[lua_field("value")] u64);
 
 impl From<u64> for Layer {
     fn from(layer: u64) -> Self {

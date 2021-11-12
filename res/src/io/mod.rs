@@ -16,15 +16,18 @@ pub mod encoder;
 #[cfg(feature = "writer")]
 pub mod writer;
 
+#[cfg(feature = "asset_loader")]
 use crate::ResourceChunkID;
+
 use std::fs::File;
 use std::io::Error as IOError;
 
-pub(crate) fn chunk_to_filename(chunk: ResourceChunkID) -> String {
+#[cfg(feature = "asset_loader")]
+pub(in crate) fn chunk_to_filename(chunk: ResourceChunkID) -> String {
     format!("assets{}.res", chunk)
 }
 
-pub(crate) fn read_file_all(file: &File, offset: u64, buffer: &mut [u8]) -> Result<(), IOError> {
+pub(in crate) fn read_file_all(file: &File, offset: u64, buffer: &mut [u8]) -> Result<(), IOError> {
     #[cfg(target_family = "unix")]
     {
         use std::os::unix::prelude::FileExt;

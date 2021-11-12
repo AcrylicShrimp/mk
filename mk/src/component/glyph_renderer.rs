@@ -1,16 +1,20 @@
 use crate::render::{Color, Layer, Shader};
+use codegen::{Animation, LuaComponent};
 use fontdue::layout::{CoordinateSystem, Layout, TextStyle};
 use fontdue::Font;
 use std::sync::Arc;
 
+#[derive(Animation, LuaComponent)]
 pub struct GlyphRenderer {
     pub layer: Layer,
     pub order: isize,
     pub color: Color,
+    #[lua_hidden]
     pub shader: Arc<Shader>,
     font: Arc<Font>,
     font_size: f32,
     text: String,
+    #[lua_hidden]
     layout: Layout,
 }
 

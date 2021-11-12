@@ -1,5 +1,7 @@
 use crate::render::*;
+use codegen::LuaRc;
 use image::{open as open_image, ColorType, GenericImageView, ImageError};
+use mlua::prelude::*;
 use std::error::Error;
 use std::fmt::Display;
 use std::fs::metadata as fs_metadata;
@@ -44,6 +46,40 @@ pub enum SpriteChannel {
     RGBA,
 }
 
+impl<'lua> FromLua<'lua> for SpriteChannel {
+    fn from_lua(value: LuaValue<'lua>, _lua: &'lua Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::String(channel) => match channel.to_str()? {
+                "r" => Ok(SpriteChannel::R),
+                "rg" => Ok(SpriteChannel::RG),
+                "rgb" => Ok(SpriteChannel::RGB),
+                "rgba" => Ok(SpriteChannel::RGBA),
+                _ => Err(format!(
+                    "{:?} is invalid value for the type {}",
+                    channel, "SpriteChannel",
+                )
+                .to_lua_err()),
+            },
+            _ => {
+                return Err(
+                    format!("the type {} must be a {}", "SpriteChannel", "string").to_lua_err(),
+                );
+            }
+        }
+    }
+}
+
+impl<'lua> ToLua<'lua> for SpriteChannel {
+    fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        Ok(LuaValue::String(lua.create_string(match self {
+            SpriteChannel::R => "r",
+            SpriteChannel::RG => "rg",
+            SpriteChannel::RGB => "rgb",
+            SpriteChannel::RGBA => "rgba",
+        })?))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TexelMapping {
     min: (u32, u32),
@@ -72,9 +108,39 @@ impl TexelMapping {
     }
 }
 
-#[derive(Debug)]
+impl<'lua> FromLua<'lua> for TexelMapping {
+    fn from_lua(value: LuaValue<'lua>, _lua: &'lua Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Table(mapping) => {
+                let min = mapping.get::<_, LuaTable>("min")?;
+                let max = mapping.get::<_, LuaTable>("max")?;
+                Ok(TexelMapping::new(
+                    (min.get::<_, u32>(1)?, min.get::<_, u32>(2)?),
+                    (max.get::<_, u32>(1)?, max.get::<_, u32>(2)?),
+                ))
+            }
+            _ => {
+                return Err(
+                    format!("the type {} must be a {}", "TexelMapping", "table").to_lua_err()
+                );
+            }
+        }
+    }
+}
+
+impl<'lua> ToLua<'lua> for TexelMapping {
+    fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        Ok(LuaValue::Table(lua.create_table_from([
+            ("min", lua.create_sequence_from([self.min.0, self.min.1])?),
+            ("max", lua.create_sequence_from([self.max.0, self.max.1])?),
+        ])?))
+    }
+}
+
+#[derive(LuaRc, Debug)]
 pub struct Sprite {
     channel: SpriteChannel,
+    #[lua_hidden]
     texture: Arc<Texture>,
     texel_mapping: TexelMapping,
 }

@@ -20,3 +20,11 @@ pub use sprite::*;
 pub use sprite_atlas::*;
 pub use sprite_atlas_grid::*;
 pub use tilemap::*;
+
+use codegen::lua_rc;
+use fontdue::Font;
+
+lua_rc!(Font as LuaRcFont);
+lua_rc!(Buffer as LuaRcBuffer);
+lua_rc!(Shader as LuaRcShader);
+lua_rc!(Texture as LuaRcTexture);

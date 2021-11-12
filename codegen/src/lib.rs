@@ -9,7 +9,7 @@ use syn::spanned::Spanned;
 use syn::token::Comma;
 use syn::{
     parse_macro_input, Data, DeriveInput, Error as SynError, Ident, Index, LitStr,
-    Result as SynResult, Token,
+    Result as SynResult, Token, Type,
 };
 
 #[derive(Clone)]
@@ -183,7 +183,7 @@ pub fn animation_derive(item: TokenStream) -> TokenStream {
     }
 
     let expanded = quote! {
-        impl crate::component::Animate for #name {
+        impl crate::codegen_traits::Animate for #name {
             fn ty(&self) -> &'static str {
                 #name_snake
             }
@@ -226,7 +226,7 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
 
     let name = input.ident;
     let type_name = format!("component:{}", name);
-    let wrapper_name = format_ident!("LuaWrapper{}", name);
+    let wrapper_name = format_ident!("LuaComponent{}", name);
     let mut field_index = 0;
     let mut fields = vec![];
     let mut field_names = vec![];
@@ -249,9 +249,7 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
                         "{}",
                         attr.parse_args::<LitStr>().unwrap_or_abort().value()
                     ));
-                }
-
-                if ident == "lua_readonly" {
+                } else if ident == "lua_readonly" {
                     readonly = true;
                 }
             }
@@ -275,18 +273,18 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
             },
         };
 
-        fields.push(field_ref.clone());
-        field_names.push(field_name.to_string());
-
         if !readonly {
-            non_readonly_fields.push(field_ref);
+            non_readonly_fields.push(field_ref.clone());
             non_readonly_field_names.push(field_name.to_string());
             non_readonly_field_types.push(field.ty.clone());
         }
+
+        fields.push(field_ref);
+        field_names.push(field_name.to_string());
     }
 
     if fields.is_empty() {
-        abort!(span, "the struct {} has no fields no expose", name);
+        abort!(span, "the struct {} has no fields to expose", name);
     }
 
     let field_impls = quote! {
@@ -305,10 +303,10 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
                             Ok(this) => this,
                             Err(_) => return Ok(mlua::Value::Nil),
                         };
-                        this.#fields.to_lua(lua)
+                        this.#fields.clone().to_lua(lua)
                     }
                 )*
-                _ => Err(format!("the type {} has no such field {}", #type_name, index).to_lua_err()),
+                _ => Err(format!("the type {} has no such field '{}'", #type_name, index).to_lua_err()),
             },
         );
     };
@@ -334,13 +332,14 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
                             Ok(())
                         }
                     )*
-                    _ => Err(format!("the type {} has no such field {}", #type_name, index).to_lua_err()),
+                    _ => Err(format!("the type {} has no such field '{}'", #type_name, index).to_lua_err()),
                 },
             );
         }
     };
 
     let expanded = quote! {
+        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
         pub struct #wrapper_name(pub legion::Entity);
 
         impl From<legion::Entity> for #wrapper_name {
@@ -350,8 +349,8 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
         }
 
         impl From<#wrapper_name> for legion::Entity {
-            fn from(wrapper: #wrapper_name) -> Self {
-                wrapper.0
+            fn from(component: #wrapper_name) -> Self {
+                component.0
             }
         }
 
@@ -375,8 +374,189 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
             fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
                 use mlua::{ExternalError, ToLua};
 
+                methods.add_meta_method(
+                    mlua::MetaMethod::ToString,
+                    |lua, this, ()| {
+                        format!("{}{{entity id: {:?}}}", #type_name, this.0).to_lua(lua)
+                    }
+                );
                 #field_impls
                 #non_readonly_field_impls
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(LuaRc, attributes(lua_userdata, lua_field, lua_hidden))]
+#[proc_macro_error]
+pub fn lua_rc_derive(item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+    let span = input.span();
+    let data = if let Data::Struct(data) = input.data {
+        data
+    } else {
+        return TokenStream::new();
+    };
+
+    let name = input.ident;
+    let type_name = format!("rc:{}", name);
+    let wrapper_name = format_ident!("LuaRc{}", name);
+    let mut field_index = 0;
+    let mut fields = vec![];
+    let mut field_names = vec![];
+
+    'field: for field in &data.fields {
+        let mut userdata_type = None;
+        let mut field_name = None;
+
+        for attr in &field.attrs {
+            if let Some(ident) = attr.path.get_ident() {
+                if ident == "lua_hidden" {
+                    continue 'field;
+                }
+
+                if ident == "lua_userdata" {
+                    userdata_type = Some(attr.parse_args::<Type>().unwrap_or_abort());
+                } else if ident == "lua_field" {
+                    field_name = Some(format_ident!(
+                        "{}",
+                        attr.parse_args::<LitStr>().unwrap_or_abort().value()
+                    ));
+                }
+            }
+        }
+
+        let field_ref = &match &field.ident {
+            Some(ident) => FieldRef::Ident(ident.clone()),
+            None => {
+                let index = Index::from(field_index);
+                field_index += 1;
+                FieldRef::Index(index)
+            }
+        };
+        let field_name = match field_name.as_ref() {
+            Some(ident) => ident,
+            None => match &field.ident {
+                Some(ident) => ident,
+                None => {
+                    continue 'field;
+                }
+            },
+        };
+
+        fields.push(if let Some(userdata_type) = userdata_type.as_ref() {
+            quote! {
+                <#userdata_type>::from(this.#field_ref.clone()).to_lua(lua)
+            }
+        } else {
+            quote! {
+                this.#field_ref.clone().to_lua(lua)
+            }
+        });
+        field_names.push(field_name.to_string());
+    }
+
+    if fields.is_empty() {
+        abort!(span, "the struct {} has no fields to expose", name);
+    }
+
+    let expanded = quote! {
+        #[derive(Clone)]
+        pub struct #wrapper_name(pub std::sync::Arc<#name>);
+
+        impl From<std::sync::Arc<#name>> for #wrapper_name {
+            fn from(rc: std::sync::Arc<#name>) -> Self {
+                Self(rc)
+            }
+        }
+
+        impl From<#wrapper_name> for std::sync::Arc<#name> {
+            fn from(rc: #wrapper_name) -> Self {
+                rc.0
+            }
+        }
+
+        impl mlua::UserData for #wrapper_name {
+            fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+                use mlua::{ExternalError, ToLua};
+
+                methods.add_meta_method(mlua::MetaMethod::ToString, |lua, this, ()| {
+                    format!("{}{{ptr: {:p}}}", "rc:Sprite", std::sync::Arc::as_ptr(&this.0)).to_lua(lua)
+                });
+                methods.add_meta_method(
+                    mlua::MetaMethod::Index,
+                    |lua, this, index: String| match index.as_str() {
+                        "_type" => #type_name.to_lua(lua),
+                        #(
+                            #field_names => {
+                                let this = std::sync::Arc::<#name>::from(this.clone());
+                                #fields
+                            }
+                        )*
+                        _ => Err(format!("the type {} has no such field '{}'", #type_name, index).to_lua_err()),
+                    },
+                );
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+struct LuaRcInput {
+    pub ty: Type,
+    pub name: Ident,
+}
+
+impl Parse for LuaRcInput {
+    fn parse(input: ParseStream) -> SynResult<Self> {
+        let ty = input.parse()?;
+        input.parse::<Token![as]>()?;
+        let name = input.parse()?;
+
+        Ok(Self { ty, name })
+    }
+}
+
+#[proc_macro]
+#[proc_macro_error]
+pub fn lua_rc(item: TokenStream) -> TokenStream {
+    let LuaRcInput { ty, name } = parse_macro_input!(item as LuaRcInput);
+
+    let type_name = format!("rc:{}", name);
+
+    let expanded = quote! {
+        #[derive(Clone)]
+        pub struct #name(pub std::sync::Arc<#ty>);
+
+        impl From<std::sync::Arc<#ty>> for #name {
+            fn from(rc: std::sync::Arc<#ty>) -> Self {
+                Self(rc)
+            }
+        }
+
+        impl From<#name> for std::sync::Arc<#ty> {
+            fn from(rc: #name) -> Self {
+                rc.0
+            }
+        }
+
+        impl mlua::UserData for #name {
+            fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+                use mlua::{ExternalError, ToLua};
+
+                methods.add_meta_method(mlua::MetaMethod::ToString, |lua, this, ()| {
+                    format!("{}{{ptr: {:p}}}", "rc:Sprite", std::sync::Arc::as_ptr(&this.0)).to_lua(lua)
+                });
+                methods.add_meta_method(
+                    mlua::MetaMethod::Index,
+                    |lua, this, index: String| match index.as_str() {
+                        "_type" => #type_name.to_lua(lua),
+                        _ => Err(format!("the type {} has no such field '{}'", #type_name, index).to_lua_err()),
+                    },
+                );
             }
         }
     };

@@ -1,6 +1,7 @@
 pub mod animation;
 pub mod api;
 pub mod asset;
+pub mod codegen_traits;
 pub mod component;
 pub mod diagnostic;
 mod engine;

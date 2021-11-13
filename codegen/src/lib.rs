@@ -213,7 +213,42 @@ pub fn animation_derive(item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(LuaComponent, attributes(lua_field, lua_hidden, lua_readonly))]
+struct UserFuncFieldArgument {
+    pub get: Option<Ident>,
+    pub set: Option<Ident>,
+}
+
+impl Parse for UserFuncFieldArgument {
+    fn parse(input: ParseStream) -> SynResult<Self> {
+        let mut get = None;
+        let mut set = None;
+
+        while !input.is_empty() {
+            let ty = input.parse::<Ident>()?;
+            input.parse::<Token![=]>()?;
+            let ident = input.parse::<Ident>()?;
+
+            if input.peek(Comma) {
+                input.parse::<Comma>()?;
+            }
+
+            if ty == "get" {
+                get = Some(ident);
+            } else if ty == "set" {
+                set = Some(ident);
+            } else {
+                return Err(SynError::new(input.span(), "invalid argument"));
+            }
+        }
+
+        Ok(Self { get, set })
+    }
+}
+
+#[proc_macro_derive(
+    LuaComponent,
+    attributes(lua_userdata, lua_userfunc, lua_field, lua_hidden, lua_readonly)
+)]
 #[proc_macro_error]
 pub fn lua_component_derive(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -232,9 +267,10 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
     let mut field_names = vec![];
     let mut non_readonly_fields = vec![];
     let mut non_readonly_field_names = vec![];
-    let mut non_readonly_field_types = vec![];
 
     'field: for field in &data.fields {
+        let mut userdata_type = None;
+        let mut userfunc_name = None;
         let mut field_name = None;
         let mut readonly = false;
 
@@ -244,7 +280,12 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
                     continue 'field;
                 }
 
-                if ident == "lua_field" {
+                if ident == "lua_userdata" {
+                    userdata_type = Some(attr.parse_args::<Type>().unwrap_or_abort());
+                } else if ident == "lua_userfunc" {
+                    userfunc_name =
+                        Some(attr.parse_args::<UserFuncFieldArgument>().unwrap_or_abort());
+                } else if ident == "lua_field" {
                     field_name = Some(format_ident!(
                         "{}",
                         attr.parse_args::<LitStr>().unwrap_or_abort().value()
@@ -274,12 +315,56 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
         };
 
         if !readonly {
-            non_readonly_fields.push(field_ref.clone());
+            let mut met_set_function = false;
+
+            if let Some(userfunc_name) = &userfunc_name {
+                if let Some(func_name) = &userfunc_name.set {
+                    met_set_function = true;
+                    non_readonly_fields.push(quote! {
+                        this.#func_name(value, lua)?;
+                    });
+                }
+            }
+
+            if !met_set_function {
+                let field_ty = &field.ty;
+                non_readonly_fields.push(if let Some(userdata_type) = userdata_type.as_ref() {
+                    quote! {
+                        this.#field_ref = <#field_ty>::from(<#userdata_type as mlua::FromLua>::from_lua(value, lua)?);
+                    }
+                } else {
+                    quote! {
+                        this.#field_ref = <#field_ty as mlua::FromLua>::from_lua(value, lua)?;
+                    }
+                });
+            }
+
             non_readonly_field_names.push(field_name.to_string());
-            non_readonly_field_types.push(field.ty.clone());
         }
 
-        fields.push(field_ref);
+        let mut met_get_function = false;
+
+        if let Some(userfunc_name) = &userfunc_name {
+            if let Some(func_name) = &userfunc_name.get {
+                met_get_function = true;
+                fields.push(quote! {
+                    this.#func_name()
+                });
+            }
+        }
+
+        if !met_get_function {
+            fields.push(if let Some(userdata_type) = userdata_type.as_ref() {
+                quote! {
+                    <#userdata_type>::from(this.#field_ref.clone()).to_lua(lua)
+                }
+            } else {
+                quote! {
+                    this.#field_ref.clone().to_lua(lua)
+                }
+            });
+        }
+
         field_names.push(field_name.to_string());
     }
 
@@ -303,7 +388,7 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
                             Ok(this) => this,
                             Err(_) => return Ok(mlua::Value::Nil),
                         };
-                        this.#fields.clone().to_lua(lua)
+                        #fields
                     }
                 )*
                 _ => Err(format!("the type {} has no such field '{}'", #type_name, index).to_lua_err()),
@@ -328,7 +413,8 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
                                 Ok(this) => this,
                                 Err(_) => return Err(format!("the entity id {:?} does not contains the type {}", this.0, #type_name).to_lua_err()),
                             };
-                            this.#non_readonly_fields = <#non_readonly_field_types as mlua::FromLua>::from_lua(value, lua)?;
+
+                            #non_readonly_fields
                             Ok(())
                         }
                     )*

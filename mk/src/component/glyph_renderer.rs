@@ -1,7 +1,8 @@
-use crate::render::{Color, Layer, Shader};
+use crate::render::{Color, Layer, LuaRcFont, LuaRcShader, Shader};
 use codegen::{Animation, LuaComponent};
 use fontdue::layout::{CoordinateSystem, Layout, TextStyle};
 use fontdue::Font;
+use mlua::prelude::*;
 use std::sync::Arc;
 
 #[derive(Animation, LuaComponent)]
@@ -9,10 +10,15 @@ pub struct GlyphRenderer {
     pub layer: Layer,
     pub order: isize,
     pub color: Color,
-    #[lua_hidden]
+    #[lua_userdata(LuaRcShader)]
     pub shader: Arc<Shader>,
+    #[lua_userdata(LuaRcFont)]
+    #[lua_userfunc(set=set_font_from_lua)]
+    // NOTE: Support the userfunc to the animation derive macro too.
     font: Arc<Font>,
+    #[lua_userfunc(set=set_font_size_from_lua)]
     font_size: f32,
+    #[lua_userfunc(set=set_text_from_lua)]
     text: String,
     #[lua_hidden]
     layout: Layout,
@@ -77,5 +83,20 @@ impl GlyphRenderer {
             &[self.font.as_ref()],
             &TextStyle::new(text, self.font_size, 0),
         );
+    }
+
+    fn set_font_from_lua(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
+        self.set_font(<_>::from(LuaRcFont::from_lua(value, lua)?));
+        Ok(())
+    }
+
+    fn set_font_size_from_lua(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
+        self.set_font_size(f32::from_lua(value, lua)?);
+        Ok(())
+    }
+
+    fn set_text_from_lua(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
+        self.set_text(String::from_lua(value, lua)?.as_str());
+        Ok(())
     }
 }

@@ -115,7 +115,7 @@ impl System for RendererSystem {
         let height_half = (screen_mgr.height() * 0.5) as f32;
 
         for (camera_transform, camera) in cameras {
-            let camera_transform_index = u32::from(*camera_transform);
+            let camera_transform_index = camera_transform.index();
             let camera_transform = transform_mgr.transform(camera_transform_index);
             let mut ndc_to_world = transform_mgr
                 .transform_world_matrix(camera_transform_index)
@@ -140,12 +140,12 @@ impl System for RendererSystem {
             <(&Transform, &mut GlyphRenderer)>::query()
                 .filter(!component::<Diagnostic>())
                 .for_each_mut(&mut rest_world, |(transform, renderer)| {
-                    if camera.layer & u64::from(renderer.layer) == 0 {
+                    if !Layer::has_overlap(camera.layer, renderer.layer) {
                         return;
                     }
 
                     let color = renderer.color;
-                    let matrix = transform_mgr.transform_world_matrix(u32::from(*transform));
+                    let matrix = transform_mgr.transform_world_matrix(transform.index());
                     let mut texture_and_buffers = bump_vec![in &self.extra_bump];
 
                     let (font, layout) = renderer.font_and_layout();
@@ -255,15 +255,12 @@ impl System for RendererSystem {
             <(&Transform, &mut SpriteRenderer)>::query()
                 .filter(!component::<Diagnostic>())
                 .for_each_mut(&mut rest_world, |(transform, renderer)| {
-                    if camera.layer & u64::from(renderer.layer) == 0 {
+                    if !Layer::has_overlap(camera.layer, renderer.layer) {
                         return;
                     }
 
-                    let matrix = transform_mgr.transform_world_matrix(u32::from(*transform));
-                    let sprite = match &renderer.sprite {
-                        SpriteType::Sprite(sprite) => sprite,
-                        SpriteType::Animated(animation) => animation.sprite(),
-                    };
+                    let matrix = transform_mgr.transform_world_matrix(transform.index());
+                    let sprite = &renderer.sprite;
                     let mut buffer = render_mgr.alloc_buffer();
 
                     buffer.replace(&[
@@ -358,12 +355,12 @@ impl System for RendererSystem {
             <(&Transform, &mut TilemapRenderer)>::query()
                 .filter(!component::<Diagnostic>())
                 .for_each_mut(&mut rest_world, |(transform, renderer)| {
-                    if camera.layer & u64::from(renderer.layer) == 0 {
+                    if !Layer::has_overlap(camera.layer, renderer.layer) {
                         return;
                     }
 
-                    let matrix = transform_mgr.transform_world_matrix(u32::from(*transform));
-                    let transform = transform_mgr.transform(u32::from(*transform));
+                    let matrix = transform_mgr.transform_world_matrix(transform.index());
+                    let transform = transform_mgr.transform(transform.index());
                     let mut world_to_local = [0f32; 9];
                     let mut ndc_to_local = [0f32; 6];
 

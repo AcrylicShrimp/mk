@@ -1,14 +1,4 @@
-use crate::animation::Animation;
-use crate::animation::AnimationEasing;
-use crate::animation::AnimationKeyFrame;
-use crate::animation::AnimationTimeLine;
-use crate::animation::AnimationValue;
 use crate::asset::*;
-use crate::component::SingleAnimator;
-use crate::component::SpriteRenderer;
-use crate::component::SpriteType;
-use crate::component::Transform;
-use crate::emit_diagnostic_debug;
 use crate::emit_diagnostic_info;
 use crate::event::*;
 use crate::render::*;
@@ -154,7 +144,6 @@ pub fn run(
         );
     });
     system_mgr.register_system(-10001, |context: &EngineContextWithoutSystemManager| {
-        animate_sprites(&mut context.world_mut(), &context.time_mgr());
         animate_sigle_animations(
             &mut context.world_mut(),
             &context.time_mgr(),

@@ -84,6 +84,7 @@ impl LuaManager {
     // }
 }
 
+// TODO: Move this to outer scope.
 pub fn use_context() -> &'static Arc<EngineContextWithoutSystemManager> {
     return unsafe { &CONTEXT }.as_ref().unwrap();
 }

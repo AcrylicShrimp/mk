@@ -1,5 +1,7 @@
-use crate::render::{Sprite, SpriteChannel, TexelMapping, Texture};
+use crate::render::{LuaRcSprite, LuaRcTexture, Sprite, SpriteChannel, TexelMapping, Texture};
+use codegen::LuaRc;
 use image::{open as open_image, ColorType, GenericImageView, ImageError};
+use mlua::prelude::*;
 use serde::Deserialize;
 use serde_json::{from_str, Error as JSONError};
 use std::collections::HashMap;
@@ -61,9 +63,11 @@ struct AtlasItemJSON {
 
 type AtlasMetadataJSON = HashMap<String, AtlasItemJSON>;
 
-#[derive(Debug)]
+#[derive(LuaRc, Debug)]
 pub struct SpriteAtlas {
+    #[lua_userdata(LuaRcTexture)]
     texture: Arc<Texture>,
+    #[lua_userfunc(get=lua_get_sprites)]
     sprites: HashMap<String, Arc<Sprite>>,
 }
 
@@ -151,5 +155,13 @@ impl SpriteAtlas {
 
     pub fn sprites(&self) -> &HashMap<String, Arc<Sprite>> {
         &self.sprites
+    }
+
+    fn lua_get_sprites<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        self.sprites
+            .iter()
+            .map(|(k, v)| (k.clone(), LuaRcSprite::from(v.clone())))
+            .collect::<HashMap<_, _>>()
+            .to_lua(lua)
     }
 }

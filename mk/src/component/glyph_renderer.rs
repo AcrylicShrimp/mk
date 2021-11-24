@@ -13,12 +13,12 @@ pub struct GlyphRenderer {
     #[lua_userdata(LuaRcShader)]
     pub shader: Arc<Shader>,
     #[lua_userdata(LuaRcFont)]
-    #[lua_userfunc(set=set_font_from_lua)]
+    #[lua_userfunc(set=lua_set_font)]
     // NOTE: Support the userfunc to the animation derive macro too.
     font: Arc<Font>,
-    #[lua_userfunc(set=set_font_size_from_lua)]
+    #[lua_userfunc(set=lua_set_font_size)]
     font_size: f32,
-    #[lua_userfunc(set=set_text_from_lua)]
+    #[lua_userfunc(set=lua_set_text)]
     text: String,
     #[lua_hidden]
     layout: Layout,
@@ -76,27 +76,27 @@ impl GlyphRenderer {
         );
     }
 
-    pub fn set_text(&mut self, text: &str) {
-        self.text = text.to_owned();
+    pub fn set_text(&mut self, text: String) {
+        self.text = text;
         self.layout.clear();
         self.layout.append(
             &[self.font.as_ref()],
-            &TextStyle::new(text, self.font_size, 0),
+            &TextStyle::new(self.text.as_str(), self.font_size, 0),
         );
     }
 
-    fn set_font_from_lua(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
+    fn lua_set_font(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
         self.set_font(<_>::from(LuaRcFont::from_lua(value, lua)?));
         Ok(())
     }
 
-    fn set_font_size_from_lua(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
+    fn lua_set_font_size(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
         self.set_font_size(f32::from_lua(value, lua)?);
         Ok(())
     }
 
-    fn set_text_from_lua(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
-        self.set_text(String::from_lua(value, lua)?.as_str());
+    fn lua_set_text(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
+        self.set_text(String::from_lua(value, lua)?);
         Ok(())
     }
 }

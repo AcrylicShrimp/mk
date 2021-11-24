@@ -1,8 +1,7 @@
+use crate::codegen_traits::LuaApiTable;
 use mlua::prelude::*;
 
-use crate::codegen_traits::LuaApiTable;
-
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
@@ -67,11 +66,11 @@ impl<'lua> ToLua<'lua> for Color {
 }
 
 impl LuaApiTable for Color {
-    fn name() -> &'static str {
+    fn api_name() -> &'static str {
         "Color"
     }
 
-    fn fill_table(lua: &Lua, table: &LuaTable) -> LuaResult<()> {
+    fn fill_api_table(lua: &Lua, table: &LuaTable) -> LuaResult<()> {
         table.set(
             "rgb",
             LuaValue::Function(lua.create_function(|_lua, (r, g, b): (f32, f32, f32)| {

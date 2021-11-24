@@ -1,23 +1,17 @@
 use mlua::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Layer(u64);
+pub struct Layer(pub u64);
+
+impl Layer {
+    pub fn has_overlap(lhs: Self, rhs: Self) -> bool {
+        lhs.0 & rhs.0 != 0
+    }
+}
 
 impl Default for Layer {
     fn default() -> Self {
         Self(0xFFFFFFFFFFFFFFFF)
-    }
-}
-
-impl From<u64> for Layer {
-    fn from(layer: u64) -> Self {
-        Self(layer)
-    }
-}
-
-impl From<Layer> for u64 {
-    fn from(layer: Layer) -> Self {
-        layer.0
     }
 }
 

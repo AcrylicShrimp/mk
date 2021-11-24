@@ -348,7 +348,7 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
             if let Some(func_name) = &userfunc_name.get {
                 met_get_function = true;
                 fields.push(quote! {
-                    this.#func_name()
+                    this.#func_name(lua)
                 });
             }
         }
@@ -369,7 +369,7 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
     }
 
     if fields.is_empty() {
-        abort!(span, "the struct {} has no fields to expose", name);
+        abort!(span, "the struct {} has no field to expose", name);
     }
 
     let field_impls = quote! {
@@ -425,21 +425,6 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
-        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-        pub struct #wrapper_name(pub legion::Entity);
-
-        impl From<legion::Entity> for #wrapper_name {
-            fn from(entity: legion::Entity) -> Self {
-                Self(entity)
-            }
-        }
-
-        impl From<#wrapper_name> for legion::Entity {
-            fn from(component: #wrapper_name) -> Self {
-                component.0
-            }
-        }
-
         impl<'world> std::convert::TryFrom<&'world legion::world::Entry<'world>> for &'world #name {
             type Error = legion::world::ComponentError;
 
@@ -453,6 +438,21 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
 
             fn try_from(entry: &'world mut legion::world::Entry) -> Result<Self, Self::Error> {
                 entry.get_component_mut()
+            }
+        }
+
+        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+        pub struct #wrapper_name(pub legion::Entity);
+
+        impl From<legion::Entity> for #wrapper_name {
+            fn from(entity: legion::Entity) -> Self {
+                Self(entity)
+            }
+        }
+
+        impl From<#wrapper_name> for legion::Entity {
+            fn from(component: #wrapper_name) -> Self {
+                component.0
             }
         }
 
@@ -475,7 +475,230 @@ pub fn lua_component_derive(item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(LuaRc, attributes(lua_userdata, lua_field, lua_hidden))]
+#[proc_macro_derive(
+    LuaComponentNoWrapper,
+    attributes(lua_userdata, lua_userfunc, lua_field, lua_hidden, lua_readonly)
+)]
+#[proc_macro_error]
+pub fn lua_component_no_wrapper_derive(item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+    let span = input.span();
+    let data = if let Data::Struct(data) = input.data {
+        data
+    } else {
+        return TokenStream::new();
+    };
+
+    let name = input.ident;
+    let type_name = format!("component:{}", name);
+    let mut field_index = 0;
+    let mut fields = vec![];
+    let mut field_names = vec![];
+    let mut non_readonly_fields = vec![];
+    let mut non_readonly_field_names = vec![];
+
+    'field: for field in &data.fields {
+        let mut userdata_type = None;
+        let mut userfunc_name = None;
+        let mut field_name = None;
+        let mut readonly = false;
+
+        for attr in &field.attrs {
+            if let Some(ident) = attr.path.get_ident() {
+                if ident == "lua_hidden" {
+                    continue 'field;
+                }
+
+                if ident == "lua_userdata" {
+                    userdata_type = Some(attr.parse_args::<Type>().unwrap_or_abort());
+                } else if ident == "lua_userfunc" {
+                    userfunc_name =
+                        Some(attr.parse_args::<UserFuncFieldArgument>().unwrap_or_abort());
+                } else if ident == "lua_field" {
+                    field_name = Some(format_ident!(
+                        "{}",
+                        attr.parse_args::<LitStr>().unwrap_or_abort().value()
+                    ));
+                } else if ident == "lua_readonly" {
+                    readonly = true;
+                }
+            }
+        }
+
+        let field_ref = match &field.ident {
+            Some(ident) => FieldRef::Ident(ident.clone()),
+            None => {
+                let index = Index::from(field_index);
+                field_index += 1;
+                FieldRef::Index(index)
+            }
+        };
+        let field_name = match field_name.as_ref() {
+            Some(ident) => ident,
+            None => match &field.ident {
+                Some(ident) => ident,
+                None => {
+                    continue 'field;
+                }
+            },
+        };
+
+        if !readonly {
+            let mut met_set_function = false;
+
+            if let Some(userfunc_name) = &userfunc_name {
+                if let Some(func_name) = &userfunc_name.set {
+                    met_set_function = true;
+                    non_readonly_fields.push(quote! {
+                        this.#func_name(value, lua)?;
+                    });
+                }
+            }
+
+            if !met_set_function {
+                let field_ty = &field.ty;
+                non_readonly_fields.push(if let Some(userdata_type) = userdata_type.as_ref() {
+                    quote! {
+                        this.#field_ref = <#field_ty>::from(<#userdata_type as mlua::FromLua>::from_lua(value, lua)?);
+                    }
+                } else {
+                    quote! {
+                        this.#field_ref = <#field_ty as mlua::FromLua>::from_lua(value, lua)?;
+                    }
+                });
+            }
+
+            non_readonly_field_names.push(field_name.to_string());
+        }
+
+        let mut met_get_function = false;
+
+        if let Some(userfunc_name) = &userfunc_name {
+            if let Some(func_name) = &userfunc_name.get {
+                met_get_function = true;
+                fields.push(quote! {
+                    this.#func_name(lua)
+                });
+            }
+        }
+
+        if !met_get_function {
+            fields.push(if let Some(userdata_type) = userdata_type.as_ref() {
+                quote! {
+                    <#userdata_type>::from(this.#field_ref.clone()).to_lua(lua)
+                }
+            } else {
+                quote! {
+                    this.#field_ref.clone().to_lua(lua)
+                }
+            });
+        }
+
+        field_names.push(field_name.to_string());
+    }
+
+    if fields.is_empty() {
+        abort!(span, "the struct {} has no field to expose", name);
+    }
+
+    let field_impls = quote! {
+        methods.add_meta_method(
+            mlua::MetaMethod::Index,
+            |lua, this, index: String| match index.as_str() {
+                "_type" => #type_name.to_lua(lua),
+                #(
+                    #field_names => {
+                        #fields
+                    }
+                )*
+                _ => Err(format!("the type {} has no such field '{}'", #type_name, index).to_lua_err()),
+            },
+        );
+    };
+    let non_readonly_field_impls = if non_readonly_fields.is_empty() {
+        QuoteTokenStream::new()
+    } else {
+        quote! {
+            methods.add_meta_method_mut(
+                mlua::MetaMethod::NewIndex,
+                |lua, this, (index, value): (String, mlua::Value)| match index.as_str() {
+                    #(
+                        #non_readonly_field_names => {
+                            #non_readonly_fields
+                            Ok(())
+                        }
+                    )*
+                    _ => Err(format!("the type {} has no such field '{}'", #type_name, index).to_lua_err()),
+                },
+            );
+        }
+    };
+
+    let expanded = quote! {
+        impl<'world> std::convert::TryFrom<&'world legion::world::Entry<'world>> for &'world #name {
+            type Error = legion::world::ComponentError;
+
+            fn try_from(entry: &'world legion::world::Entry) -> Result<Self, Self::Error> {
+                entry.get_component()
+            }
+        }
+
+        impl<'world> std::convert::TryFrom<&'world mut legion::world::Entry<'world>> for &'world mut #name {
+            type Error = legion::world::ComponentError;
+
+            fn try_from(entry: &'world mut legion::world::Entry) -> Result<Self, Self::Error> {
+                entry.get_component_mut()
+            }
+        }
+
+        impl mlua::UserData for #name {
+            fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+                use mlua::{ExternalError, ToLua};
+
+                methods.add_meta_method(
+                    mlua::MetaMethod::ToString,
+                    |lua, this, ()| {
+                        format!("{}{{{:?}}}", #type_name, this).to_lua(lua)
+                    }
+                );
+                #field_impls
+                #non_readonly_field_impls
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+struct GetOnlyUserFuncFieldArgument {
+    pub get: Option<Ident>,
+}
+
+impl Parse for GetOnlyUserFuncFieldArgument {
+    fn parse(input: ParseStream) -> SynResult<Self> {
+        let mut get = None;
+
+        while !input.is_empty() {
+            let ty = input.parse::<Ident>()?;
+            input.parse::<Token![=]>()?;
+            let ident = input.parse::<Ident>()?;
+
+            if input.peek(Comma) {
+                input.parse::<Comma>()?;
+            }
+
+            if ty == "get" {
+                get = Some(ident);
+            } else {
+                return Err(SynError::new(input.span(), "invalid argument"));
+            }
+        }
+
+        Ok(Self { get })
+    }
+}
+
+#[proc_macro_derive(LuaRc, attributes(lua_userdata, lua_userfunc, lua_field, lua_hidden))]
 #[proc_macro_error]
 pub fn lua_rc_derive(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -495,6 +718,7 @@ pub fn lua_rc_derive(item: TokenStream) -> TokenStream {
 
     'field: for field in &data.fields {
         let mut userdata_type = None;
+        let mut userfunc_name = None;
         let mut field_name = None;
 
         for attr in &field.attrs {
@@ -505,6 +729,11 @@ pub fn lua_rc_derive(item: TokenStream) -> TokenStream {
 
                 if ident == "lua_userdata" {
                     userdata_type = Some(attr.parse_args::<Type>().unwrap_or_abort());
+                } else if ident == "lua_userfunc" {
+                    userfunc_name = Some(
+                        attr.parse_args::<GetOnlyUserFuncFieldArgument>()
+                            .unwrap_or_abort(),
+                    );
                 } else if ident == "lua_field" {
                     field_name = Some(format_ident!(
                         "{}",
@@ -532,20 +761,34 @@ pub fn lua_rc_derive(item: TokenStream) -> TokenStream {
             },
         };
 
-        fields.push(if let Some(userdata_type) = userdata_type.as_ref() {
-            quote! {
-                <#userdata_type>::from(this.#field_ref.clone()).to_lua(lua)
+        let mut met_get_function = false;
+
+        if let Some(userfunc_name) = &userfunc_name {
+            if let Some(func_name) = &userfunc_name.get {
+                met_get_function = true;
+                fields.push(quote! {
+                    this.#func_name(lua)
+                });
             }
-        } else {
-            quote! {
-                this.#field_ref.clone().to_lua(lua)
-            }
-        });
+        }
+
+        if !met_get_function {
+            fields.push(if let Some(userdata_type) = userdata_type.as_ref() {
+                quote! {
+                    <#userdata_type>::from(this.#field_ref.clone()).to_lua(lua)
+                }
+            } else {
+                quote! {
+                    this.#field_ref.clone().to_lua(lua)
+                }
+            });
+        }
+
         field_names.push(field_name.to_string());
     }
 
     if fields.is_empty() {
-        abort!(span, "the struct {} has no fields to expose", name);
+        abort!(span, "the struct {} has no field to expose", name);
     }
 
     let expanded = quote! {

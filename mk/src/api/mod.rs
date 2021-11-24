@@ -1,17 +1,19 @@
-mod component;
 mod coroutine;
+mod entity;
 mod event;
 mod lua_manager;
-mod render;
 mod time;
 
-pub use self::render::*;
-pub use component::*;
 pub use coroutine::*;
+pub use entity::*;
 pub use event::*;
 pub use lua_manager::*;
 pub use time::*;
 
+use crate::codegen_traits::LuaApiTable;
+use crate::component::Transform;
+use crate::render::Color;
+use crate::structure::Vec2;
 use mlua::prelude::*;
 
 #[macro_export]
@@ -66,21 +68,29 @@ macro_rules! arc_user_data {
     };
 }
 
+pub fn register_api_table<'lua, T>(
+    lua: &'lua Lua,
+    root_table: &'lua LuaTable<'lua>,
+) -> LuaResult<()>
+where
+    T: LuaApiTable,
+{
+    let table = lua.create_table()?;
+    <T as LuaApiTable>::fill_api_table(lua, &table)?;
+    root_table.set(T::api_name(), table)?;
+    Ok(())
+}
+
 pub fn lua_api(lua: &Lua) -> LuaResult<LuaTable> {
     let table = lua.create_table()?;
 
-    table.set("Color", lua_api_color(lua)?)?;
+    register_api_table::<Color>(lua, &table)?;
+    register_api_table::<Entity>(lua, &table)?;
+    register_api_table::<Event>(lua, &table)?;
+    register_api_table::<Time>(lua, &table)?;
+    register_api_table::<Transform>(lua, &table)?;
+    register_api_table::<Vec2>(lua, &table)?;
     // table.set("Coroutine", lua_api_coroutine(lua)?)?;
-    table.set("Entity", lua_api_entity(lua)?)?;
-    table.set("Event", lua_api_event(lua)?)?;
-    table.set("Font", lua_api_font(lua)?)?;
-    table.set("Shader", lua_api_shader(lua)?)?;
-    table.set("Sprite", lua_api_sprite(lua)?)?;
-    table.set("SpriteAnimation", lua_api_sprite_animation(lua)?)?;
-    table.set("SpriteAtlas", lua_api_sprite_atlas(lua)?)?;
-    table.set("SpriteAtlasGrid", lua_api_sprite_atlas_grid(lua)?)?;
-    table.set("Tilemap", lua_api_tilemap(lua)?)?;
-    table.set("Time", lua_api_time()?)?;
 
     Ok(table)
 }

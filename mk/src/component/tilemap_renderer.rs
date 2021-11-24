@@ -1,11 +1,15 @@
-use crate::render::{Color, Layer, Shader, Tilemap};
+use crate::render::{Color, Layer, LuaRcShader, LuaRcTilemap, Shader, Tilemap};
+use codegen::LuaComponent;
 use std::sync::Arc;
 
+#[derive(LuaComponent, Debug)]
 pub struct TilemapRenderer {
     pub layer: Layer,
     pub order: isize,
     pub color: Color,
+    #[lua_userdata(LuaRcShader)]
     pub shader: Arc<Shader>,
+    #[lua_userdata(LuaRcTilemap)]
     pub tilemap: Arc<Tilemap>,
 }
 

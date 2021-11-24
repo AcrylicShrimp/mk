@@ -1,12 +1,13 @@
 macro_rules! impl_event_type_lua_api {
     ($name:ident) => {
-        impl $name {
-            pub fn generate_lua_table<'lua>(
-                lua: &'lua mlua::Lua,
-            ) -> mlua::Result<(&str, mlua::Table<'lua>)> {
-                let table = lua.create_table()?;
+        impl crate::codegen_traits::LuaApiTable for $name {
+            fn api_name() -> &'static str {
+                stringify!($name)
+            }
+
+            fn fill_api_table(lua: &Lua, table: &LuaTable) -> LuaResult<()> {
                 table.set(
-                    "eventType",
+                    "event_type",
                     crate::event::EventType::from(std::any::TypeId::of::<Self>()),
                 )?;
                 table.set(
@@ -29,7 +30,7 @@ macro_rules! impl_event_type_lua_api {
                             .remove_listener::<Self>(handler))
                     })?,
                 )?;
-                Ok((stringify!($name), table))
+                Ok(())
             }
         }
     };

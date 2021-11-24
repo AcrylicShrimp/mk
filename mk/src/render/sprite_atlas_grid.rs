@@ -1,5 +1,7 @@
-use crate::render::{Sprite, SpriteChannel, TexelMapping, Texture};
+use crate::render::{LuaRcSprite, LuaRcTexture, Sprite, SpriteChannel, TexelMapping, Texture};
+use codegen::LuaRc;
 use image::{open as open_image, ColorType, GenericImageView, ImageError};
+use mlua::prelude::*;
 use serde::Deserialize;
 use serde_json::{from_str, Error as JSONError};
 use std::error::Error;
@@ -54,9 +56,11 @@ struct AtlasGridMetadataJSON {
     grid_height: u32,
 }
 
-#[derive(Debug)]
+#[derive(LuaRc, Debug)]
 pub struct SpriteAtlasGrid {
+    #[lua_userdata(LuaRcTexture)]
     texture: Arc<Texture>,
+    #[lua_userfunc(get=lua_get_sprites)]
     sprites: Vec<Arc<Sprite>>,
 }
 
@@ -157,5 +161,13 @@ impl SpriteAtlasGrid {
 
     pub fn sprites(&self) -> &Vec<Arc<Sprite>> {
         &self.sprites
+    }
+
+    fn lua_get_sprites<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        self.sprites
+            .iter()
+            .map(|v| LuaRcSprite::from(v.clone()))
+            .collect::<Vec<_>>()
+            .to_lua(lua)
     }
 }

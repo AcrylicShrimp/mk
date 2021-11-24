@@ -1,3 +1,5 @@
+use crate::codegen_traits::LuaApiTable;
+use mlua::prelude::*;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -151,5 +153,52 @@ impl Neg for Vec2 {
             x: -self.x,
             y: -self.y,
         }
+    }
+}
+
+// TODO: Implement a macro to generate this (namely, `LuaStruct` maybe?)
+impl<'lua> FromLua<'lua> for Vec2 {
+    #[allow(unused_variables)]
+    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Table(value) => Ok(Self {
+                x: value.get("x")?,
+                y: value.get("y")?,
+            }),
+            _ => {
+                return Err(format!("the type {} must be a {}", "Vec2", "table").to_lua_err());
+            }
+        }
+    }
+}
+
+impl<'lua> ToLua<'lua> for Vec2 {
+    fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        Ok(LuaValue::Table(
+            lua.create_table_from([("x", self.x), ("y", self.y)])?,
+        ))
+    }
+}
+
+impl LuaApiTable for Vec2 {
+    fn api_name() -> &'static str {
+        "Vec2"
+    }
+
+    #[allow(unused_variables)]
+    fn fill_api_table(lua: &Lua, table: &LuaTable) -> LuaResult<()> {
+        table.set(
+            "len",
+            lua.create_function(|lua, this: Vec2| Ok(this.len()))?,
+        )?;
+        table.set(
+            "len_square",
+            lua.create_function(|lua, this: Vec2| Ok(this.len_square()))?,
+        )?;
+        table.set(
+            "norm",
+            lua.create_function(|lua, this: Vec2| Ok(this.norm()))?,
+        )?;
+        Ok(())
     }
 }

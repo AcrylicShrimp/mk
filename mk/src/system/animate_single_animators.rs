@@ -42,7 +42,7 @@ pub fn animate_sigle_animations(
             let transform = if let Ok(&transform) =
                 rest.entry_ref(entity).unwrap().get_component::<Transform>()
             {
-                <u32>::from(transform)
+                transform.index()
             } else {
                 continue;
             };
@@ -72,7 +72,7 @@ pub fn animate_sigle_animations(
                         } else {
                             continue;
                         };
-                    let transform = transform_mgr.transform_mut(u32::from(transform));
+                    let transform = transform_mgr.transform_mut(transform.index());
 
                     match time_line.field.as_str() {
                         "position.x" => {

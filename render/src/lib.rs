@@ -57,7 +57,6 @@ macro_rules! ptr_init {
 
 #[cfg(gl33)]
 mod gl33;
-mod graphics_manager;
 mod native_handle;
 mod object;
 mod render_mode;

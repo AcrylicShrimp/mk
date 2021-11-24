@@ -1,4 +1,4 @@
-use crate::render::*;
+use crate::render::{LuaRcTexture, Texture};
 use codegen::LuaRc;
 use image::{open as open_image, ColorType, GenericImageView, ImageError};
 use mlua::prelude::*;
@@ -140,7 +140,7 @@ impl<'lua> ToLua<'lua> for TexelMapping {
 #[derive(LuaRc, Debug)]
 pub struct Sprite {
     channel: SpriteChannel,
-    #[lua_hidden]
+    #[lua_userdata(LuaRcTexture)]
     texture: Arc<Texture>,
     texel_mapping: TexelMapping,
 }

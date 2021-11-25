@@ -1,7 +1,7 @@
-use crate::{
-    EncodedResource, EncoderError, ResourceEncoder, ResourceEncoderDirectoryManager, ResourceMeta,
-    ResourceMetaValue, ResourceUUID,
+use crate::writer::{
+    EncodedResource, EncoderError, ResourceEncoder, ResourceEncoderDirectoryManager,
 };
+use crate::{ResourceMeta, ResourceMetaValue, ResourceUUID};
 use brotli::CompressorWriter;
 use memmap2::Mmap;
 use std::io::Write;

@@ -41,6 +41,12 @@ impl From<EncoderError> for ResourceWriteError {
     }
 }
 
+pub struct WritingResource<'a> {
+    pub name: &'a str,
+    pub ty: &'a str,
+    pub path: &'a Path,
+}
+
 #[derive(Default)]
 pub struct ResourceWriter {
     encoders: HashMap<String, Box<dyn ResourceEncoder>>,
@@ -55,31 +61,29 @@ impl ResourceWriter {
         self.encoders.insert(ty, encoder);
     }
 
-    pub fn write(
+    pub fn write<'a>(
         &self,
         key: impl AsRef<[u8]>,
         salt: impl AsRef<[u8]>,
         chunk_size: Option<u64>,
         base_path: impl AsRef<Path>,
-        res: &[(
-            impl AsRef<str> + Sync + Send,
-            impl AsRef<Path> + Sync + Send,
-        )],
+        res: impl AsRef<[WritingResource<'a>]>,
     ) -> Result<ResourcesMeta, ResourceWriteError> {
         let dir_mgr = ResourceEncoderDirectoryManagerImpl::from_base_dir(base_path.as_ref())
             .map_err(|err| ResourceWriteError::CannotPrepareDirectory(err))?;
         let resources = res
+            .as_ref()
             .par_iter()
             .enumerate()
-            .map(|(index, (ty, path))| {
+            .map(|(index, res)| {
                 let encoder = self
                     .encoders
-                    .get(ty.as_ref())
+                    .get(res.ty)
                     .ok_or(ResourceWriteError::UnknownResourceType)?;
 
                 let file = OpenOptions::new()
                     .read(true)
-                    .open(path.as_ref())
+                    .open(res.path)
                     .map_err(|err| ResourceWriteError::CannotOpenResourceFile(err))?;
                 let content = unsafe { Mmap::map(&file) }
                     .map_err(|err| ResourceWriteError::CannotMapResourceFile(err))?;
@@ -280,7 +284,8 @@ impl ResourceWriter {
                 let ((cipher_offset, size), chunks) = write_to_chunk(&encoded.content, true)?;
                 Ok(Resource {
                     uuid,
-                    ty: res[index].0.as_ref().to_owned(),
+                    name: res.as_ref()[index].name.to_owned(),
+                    ty: res.as_ref()[index].ty.to_owned(),
                     hash,
                     cipher_offset,
                     size,
@@ -289,9 +294,15 @@ impl ResourceWriter {
                 })
             })
             .collect::<Result<Vec<_>, ResourceWriteError>>()?;
+        let resource_names = resources
+            .iter()
+            .enumerate()
+            .map(|(index, res)| (res.name.clone(), index))
+            .collect();
         let meta = ResourcesMeta {
             version: 1,
             resources,
+            resource_names,
         };
 
         dir_mgr

@@ -6,11 +6,13 @@ use std::num::NonZeroU64;
 pub struct ResourcesMeta {
     pub version: u32,
     pub resources: Vec<Resource>,
+    pub resource_names: BTreeMap<String, usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 pub struct Resource {
     pub uuid: ResourceUUID,
+    pub name: String,
     pub ty: String,
     pub hash: ResourceHash,
     pub cipher_offset: u64,

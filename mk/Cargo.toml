@@ -9,7 +9,7 @@ authors = ["AcrylicShrimp <led789zxpp@naver.com>"]
 [dependencies]
 codegen = { path = "../codegen" }
 render = { path = "../render" }
-res = { path = "../res" }
+res = { path = "../res", features = ["writer"] }
 
 # Third parties
 bitvec = { version = "0.22" }

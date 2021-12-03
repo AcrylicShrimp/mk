@@ -1,9 +1,11 @@
+mod asset;
 mod coroutine;
 mod entity;
 mod event;
 mod lua_manager;
 mod time;
 
+pub use asset::*;
 pub use coroutine::*;
 pub use entity::*;
 pub use event::*;
@@ -87,6 +89,11 @@ pub fn lua_api(lua: &Lua) -> LuaResult<LuaTable> {
     register_api_table::<Color>(lua, &table)?;
     register_api_table::<Entity>(lua, &table)?;
     register_api_table::<Event>(lua, &table)?;
+    register_api_table::<FontAsset>(lua, &table)?;
+    register_api_table::<ShaderAsset>(lua, &table)?;
+    register_api_table::<SpriteAsset>(lua, &table)?;
+    register_api_table::<SpriteAtlasAsset>(lua, &table)?;
+    register_api_table::<SpriteAtlasGridAsset>(lua, &table)?;
     register_api_table::<Time>(lua, &table)?;
     register_api_table::<Transform>(lua, &table)?;
     register_api_table::<Vec2>(lua, &table)?;

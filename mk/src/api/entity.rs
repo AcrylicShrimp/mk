@@ -1,7 +1,7 @@
 use crate::api::use_context;
 use crate::codegen_traits::LuaApiTable;
 use crate::component::{
-    Camera, GlyphRenderer, LuaComponentCamera, LuaComponentGlyphRenderer,
+    Camera, GlyphRenderer, GlyphRendererConfig, LuaComponentCamera, LuaComponentGlyphRenderer,
     LuaComponentSpriteRenderer, LuaComponentTilemapRenderer, SpriteRenderer, TilemapRenderer,
     Transform,
 };
@@ -127,6 +127,8 @@ impl LuaApiTable for Entity {
                 let mut transform_mgr = context.transform_mgr_mut();
                 let transform = transform_mgr.alloc(entity);
 
+                entry.add_component(Transform::new(transform));
+
                 transform_mgr.set_name(transform, param.name);
 
                 if let Some(param) = param.transform {
@@ -172,6 +174,10 @@ impl LuaApiTable for Entity {
 
                     if let Some(color) = param.color {
                         glyph_renderer.color = color;
+                    }
+
+                    if let Some(config) = param.config {
+                        glyph_renderer.set_config(config);
                     }
 
                     if let Some(text) = param.text {
@@ -322,6 +328,7 @@ struct GlyphRendererBuildParam {
     pub shader: LuaRcShader,
     pub font: LuaRcFont,
     pub font_size: f32,
+    pub config: Option<GlyphRendererConfig>,
     pub text: Option<String>,
 }
 
@@ -358,6 +365,7 @@ impl<'lua> FromLua<'lua> for GlyphRendererBuildParam {
             shader: table.get("shader")?,
             font: table.get("font")?,
             font_size: table.get("font_size")?,
+            config: table.get("config")?,
             text: if table.contains_key("text")? {
                 Some(table.get("text")?)
             } else {

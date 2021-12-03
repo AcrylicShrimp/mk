@@ -219,7 +219,7 @@ impl LuaApiTable for Entity {
                     entry.add_component(tilemap_renderer);
                 }
 
-                Ok(())
+                Ok(Entity::new(entity))
             })?,
         )?;
         table.set(

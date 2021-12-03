@@ -18,9 +18,21 @@ impl Default for Layer {
 impl<'lua> FromLua<'lua> for Layer {
     fn from_lua(value: LuaValue<'lua>, _lua: &'lua Lua) -> LuaResult<Self> {
         match value {
+            LuaValue::String(str) => match str.to_str()? {
+                "all" => Ok(Self(0xFFFFFFFFFFFFFFFF)),
+                "none" => Ok(Self(0)),
+                str => Err(LuaError::external(format!(
+                    "the string '{}' is invalid value for the type {}",
+                    str, "Layer"
+                ))),
+            },
             LuaValue::Integer(layer) => Ok(Self(layer as _)),
             _ => {
-                return Err(format!("the type {} must be a {}", "Layer", "integer").to_lua_err());
+                return Err(format!(
+                    "the type {} must be a {} or a {}",
+                    "Layer", "integer", "string"
+                )
+                .to_lua_err());
             }
         }
     }

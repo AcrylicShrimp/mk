@@ -1,10 +1,9 @@
 use crate::io::read_file_all;
-use crate::{chunk_to_filename, Resource, ResourcesMeta};
+use crate::{chunk_to_filename, Resource};
 use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{FromBlockCipher, NewBlockCipher, StreamCipher, StreamCipherSeek};
 use aes::{Aes256, Aes256Ctr};
 use argon2::{hash_raw, Config, Error as Argon2Error};
-use bincode::{options, Error as BincodeError, Options};
 use downcast_rs::{impl_downcast, Downcast};
 use std::collections::HashMap;
 use std::error::Error;

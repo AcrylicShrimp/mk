@@ -1,12 +1,7 @@
 #[cfg(feature = "asset_loader")]
-pub mod asset_decoder;
-#[cfg(feature = "asset_loader")]
 pub mod asset_loader;
-
-#[cfg(feature = "fs_loader")]
-pub mod fs_decoder;
-#[cfg(feature = "fs_loader")]
-pub mod fs_loader;
+#[cfg(feature = "asset_loader")]
+pub mod decoder;
 
 #[cfg(feature = "meta_loader")]
 pub mod meta_loader;

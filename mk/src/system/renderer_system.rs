@@ -352,6 +352,209 @@ impl System for RendererSystem {
                     buffers.push(buffer);
                     renderers.push((renderer.order, r));
                 });
+            <(&Transform, &mut NinePatchRenderer)>::query()
+                .filter(!component::<Diagnostic>())
+                .for_each_mut(&mut rest_world, |(transform, renderer)| {
+                    if !Layer::has_overlap(camera.layer, renderer.layer) {
+                        return;
+                    }
+
+                    let matrix = transform_mgr.transform_world_matrix(transform.index());
+                    let nine_patch = &renderer.nine_patch;
+
+                    let left = nine_patch.sprite_lt().width() as f32;
+                    let right = nine_patch.sprite_rt().width() as f32;
+                    let center = f32::max(0f32, renderer.width - left - right);
+                    let (left, right) = if 0f32 < center {
+                        (left, right)
+                    } else {
+                        let ratio = renderer.width / (left + right);
+                        (left * ratio, right * ratio)
+                    };
+
+                    let top = nine_patch.sprite_lt().height() as f32;
+                    let bottom = nine_patch.sprite_lb().height() as f32;
+                    let middle = f32::max(0f32, renderer.height - top - bottom);
+                    let (top, bottom) = if 0f32 < middle {
+                        (top, bottom)
+                    } else {
+                        let ratio = renderer.height / (top + bottom);
+                        (top * ratio, bottom * ratio)
+                    };
+
+                    let mut buffer_data: Vec<f32> = Vec::with_capacity(9 * 19);
+                    let mut enqueue_patch =
+                        |offset_x: f32, offset_y: f32, width: f32, height: f32, sprite: &Sprite| {
+                            buffer_data.extend(&[
+                                matrix[0],
+                                matrix[1],
+                                matrix[2],
+                                matrix[3],
+                                matrix[4],
+                                matrix[5],
+                                matrix[6] + matrix[0] * offset_x + matrix[3] * offset_y,
+                                matrix[7] + matrix[1] * offset_x + matrix[4] * offset_y,
+                                matrix[8],
+                                width,
+                                height,
+                                renderer.color.r,
+                                renderer.color.g,
+                                renderer.color.b,
+                                renderer.color.a,
+                                (sprite.texel_mapping().min().0 as f32 + 0.5f32)
+                                    / sprite.texture().width() as f32,
+                                (sprite.texel_mapping().min().1 as f32 + 0.5f32)
+                                    / sprite.texture().height() as f32,
+                                (sprite.texel_mapping().max().0 as f32 - 0.5f32)
+                                    / sprite.texture().width() as f32,
+                                (sprite.texel_mapping().max().1 as f32 - 0.5f32)
+                                    / sprite.texture().height() as f32,
+                            ]);
+                        };
+
+                    let mut patch_count = 0;
+
+                    if 0f32 < left && 0f32 < top {
+                        patch_count += 1;
+                        enqueue_patch(0f32, -top, left, top, &nine_patch.sprite_lt());
+                    }
+
+                    if 0f32 < center && 0f32 < top {
+                        patch_count += 1;
+                        enqueue_patch(left, -top, center, top, &nine_patch.sprite_ct());
+                    }
+
+                    if 0f32 < right && 0f32 < top {
+                        patch_count += 1;
+                        enqueue_patch(left + center, -top, right, top, &nine_patch.sprite_rt());
+                    }
+
+                    if 0f32 < left && 0f32 < middle {
+                        patch_count += 1;
+                        enqueue_patch(0f32, -(top + middle), left, middle, &nine_patch.sprite_lm());
+                    }
+
+                    if 0f32 < center && 0f32 < middle {
+                        patch_count += 1;
+                        enqueue_patch(
+                            left,
+                            -(top + middle),
+                            center,
+                            middle,
+                            &nine_patch.sprite_cm(),
+                        );
+                    }
+
+                    if 0f32 < right && 0f32 < middle {
+                        patch_count += 1;
+                        enqueue_patch(
+                            left + center,
+                            -(top + middle),
+                            right,
+                            middle,
+                            &nine_patch.sprite_rm(),
+                        );
+                    }
+
+                    if 0f32 < left && 0f32 < bottom {
+                        patch_count += 1;
+                        enqueue_patch(
+                            0f32,
+                            -(top + middle + bottom),
+                            left,
+                            bottom,
+                            &nine_patch.sprite_lb(),
+                        );
+                    }
+
+                    if 0f32 < center && 0f32 < bottom {
+                        patch_count += 1;
+                        enqueue_patch(
+                            left,
+                            -(top + middle + bottom),
+                            center,
+                            bottom,
+                            &nine_patch.sprite_cb(),
+                        );
+                    }
+
+                    if 0f32 < right && 0f32 < bottom {
+                        patch_count += 1;
+                        enqueue_patch(
+                            left + center,
+                            -(top + middle + bottom),
+                            right,
+                            bottom,
+                            &nine_patch.sprite_rb(),
+                        );
+                    }
+
+                    let mut buffer = render_mgr.alloc_buffer();
+                    buffer.replace(buffer_data.as_slice());
+
+                    let shader = &renderer.shader;
+                    let mut r = Renderer::new(&self.renderer_bump);
+
+                    r.enqueue(patch_count, 2, RenderMode::Trangles, shader, |req| {
+                        render_mgr.apply_common_shader_input(shader, req);
+
+                        // TODO: Add shader type checking logic to alert if types have no match.
+
+                        if let Some(uniform) = shader.uniform("camera") {
+                            req.uniform_f33(uniform.location, camera_matrix_inverse);
+                        }
+                        if let Some(uniform) = shader.uniform("sprite") {
+                            req.uniform_texture(uniform.location, nine_patch.texture());
+                        }
+
+                        if let Some(attribute) = shader.attribute("pos") {
+                            req.attribute(attribute.location, &self.sprite_buffer, 0, attribute.ty);
+                        }
+                        if let Some(attribute) = shader.attribute("uv") {
+                            req.attribute(
+                                attribute.location,
+                                &self.sprite_buffer,
+                                (size_of::<f32>() * 2) as _,
+                                attribute.ty,
+                            );
+                        }
+
+                        if let Some(attribute) = shader.attribute("transform") {
+                            req.attribute_per_instance(
+                                attribute.location,
+                                &buffer,
+                                0,
+                                attribute.ty,
+                            );
+                        }
+                        if let Some(attribute) = shader.attribute("size") {
+                            req.attribute_per_instance(
+                                attribute.location,
+                                &buffer,
+                                (size_of::<f32>() * 9) as _,
+                                attribute.ty,
+                            );
+                        }
+                        if let Some(attribute) = shader.attribute("color") {
+                            req.attribute_per_instance(
+                                attribute.location,
+                                &buffer,
+                                (size_of::<f32>() * 11) as _,
+                                attribute.ty,
+                            );
+                        }
+                        if let Some(attribute) = shader.attribute("uv_rect") {
+                            req.attribute_per_instance(
+                                attribute.location,
+                                &buffer,
+                                (size_of::<f32>() * 15) as _,
+                                attribute.ty,
+                            );
+                        }
+                    });
+                    buffers.push(buffer);
+                    renderers.push((renderer.order, r));
+                });
             <(&Transform, &mut TilemapRenderer)>::query()
                 .filter(!component::<Diagnostic>())
                 .for_each_mut(&mut rest_world, |(transform, renderer)| {

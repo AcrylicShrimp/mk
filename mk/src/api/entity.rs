@@ -2,10 +2,12 @@ use crate::api::use_context;
 use crate::codegen_traits::LuaApiTable;
 use crate::component::{
     Camera, GlyphRenderer, GlyphRendererConfig, LuaComponentCamera, LuaComponentGlyphRenderer,
-    LuaComponentSpriteRenderer, LuaComponentTilemapRenderer, SpriteRenderer, TilemapRenderer,
-    Transform,
+    LuaComponentNinePatchRenderer, LuaComponentSpriteRenderer, LuaComponentTilemapRenderer,
+    NinePatchRenderer, SpriteRenderer, TilemapRenderer, Transform,
 };
-use crate::render::{Color, LuaRcFont, LuaRcShader, LuaRcSprite, LuaRcTilemap};
+use crate::render::{
+    Color, LuaRcFont, LuaRcShader, LuaRcSprite, LuaRcSpriteNinePatch, LuaRcTilemap,
+};
 use crate::structure::Vec2;
 use codegen::LuaComponentNoWrapper;
 use legion::world::Entry;
@@ -29,6 +31,9 @@ pub struct Entity {
     #[lua_userfunc(get=lua_get_sprite_renderer)]
     sprite_renderer: PhantomData<LuaComponentSpriteRenderer>,
     #[lua_readonly]
+    #[lua_userfunc(get=lua_get_nine_patch_renderer)]
+    nine_patch_renderer: PhantomData<LuaComponentNinePatchRenderer>,
+    #[lua_readonly]
     #[lua_userfunc(get=lua_get_tilemap_renderer)]
     tilemap_renderer: PhantomData<LuaComponentTilemapRenderer>,
 }
@@ -41,6 +46,7 @@ impl Entity {
             camera: PhantomData,
             glyph_renderer: PhantomData,
             sprite_renderer: PhantomData,
+            nine_patch_renderer: PhantomData,
             tilemap_renderer: PhantomData,
         }
     }
@@ -95,6 +101,15 @@ impl Entity {
             e.get_component::<SpriteRenderer>()
                 .ok()
                 .map(|_| LuaComponentSpriteRenderer::from(self.entity))
+        })
+        .to_lua(lua)
+    }
+
+    fn lua_get_nine_patch_renderer<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        self.with_entry(|e| {
+            e.get_component::<NinePatchRenderer>()
+                .ok()
+                .map(|_| LuaComponentNinePatchRenderer::from(self.entity))
         })
         .to_lua(lua)
     }
@@ -204,6 +219,29 @@ impl LuaApiTable for Entity {
                     }
 
                     entry.add_component(sprite_renderer);
+                }
+
+                if let Some(param) = param.nine_patch_renderer {
+                    let mut nine_patch_renderer = NinePatchRenderer::new(
+                        <_>::from(param.shader),
+                        <_>::from(param.nine_patch),
+                        <_>::from(param.width),
+                        <_>::from(param.height),
+                    );
+
+                    if let Some(layer) = param.layer {
+                        nine_patch_renderer.layer = layer;
+                    }
+
+                    if let Some(order) = param.order {
+                        nine_patch_renderer.order = order;
+                    }
+
+                    if let Some(color) = param.color {
+                        nine_patch_renderer.color = color;
+                    }
+
+                    entry.add_component(nine_patch_renderer);
                 }
 
                 if let Some(param) = param.tilemap_renderer {
@@ -419,6 +457,54 @@ impl<'lua> FromLua<'lua> for SpriteRendererBuildParam {
     }
 }
 
+struct NinePatchRendererBuildParam {
+    pub layer: Option<crate::render::Layer>,
+    pub order: Option<isize>,
+    pub color: Option<Color>,
+    pub shader: LuaRcShader,
+    pub nine_patch: LuaRcSpriteNinePatch,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl<'lua> FromLua<'lua> for NinePatchRendererBuildParam {
+    #[allow(unused_variables)]
+    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
+        let table = match value {
+            LuaValue::Table(table) => table,
+            _ => {
+                return Err(format!(
+                    "the type {} must be a {}",
+                    "NinePatchRendererBuildParam", "table"
+                )
+                .to_lua_err());
+            }
+        };
+
+        Ok(Self {
+            layer: if table.contains_key("layer")? {
+                Some(table.get("layer")?)
+            } else {
+                None
+            },
+            order: if table.contains_key("order")? {
+                Some(table.get("order")?)
+            } else {
+                None
+            },
+            color: if table.contains_key("color")? {
+                Some(table.get("color")?)
+            } else {
+                None
+            },
+            shader: table.get("shader")?,
+            nine_patch: table.get("nine_patch")?,
+            width: table.get("width")?,
+            height: table.get("height")?,
+        })
+    }
+}
+
 struct TilemapRendererBuildParam {
     pub layer: Option<crate::render::Layer>,
     pub order: Option<isize>,
@@ -469,6 +555,7 @@ struct EntityBuildParam {
     camera: Option<CameraBuildParam>,
     glyph_renderer: Option<GlyphRendererBuildParam>,
     sprite_renderer: Option<SpriteRendererBuildParam>,
+    nine_patch_renderer: Option<NinePatchRendererBuildParam>,
     tilemap_renderer: Option<TilemapRendererBuildParam>,
 }
 
@@ -507,6 +594,11 @@ impl<'lua> FromLua<'lua> for EntityBuildParam {
             },
             sprite_renderer: if table.contains_key("sprite_renderer")? {
                 Some(table.get("sprite_renderer")?)
+            } else {
+                None
+            },
+            nine_patch_renderer: if table.contains_key("nine_patch_renderer")? {
+                Some(table.get("nine_patch_renderer")?)
             } else {
                 None
             },

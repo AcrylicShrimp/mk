@@ -7,6 +7,7 @@ mod screen_manager;
 mod sprite;
 mod sprite_atlas;
 mod sprite_atlas_grid;
+mod sprite_nine_patch;
 mod tilemap;
 
 pub use color::*;
@@ -19,6 +20,7 @@ pub use screen_manager::*;
 pub use sprite::*;
 pub use sprite_atlas::*;
 pub use sprite_atlas_grid::*;
+pub use sprite_nine_patch::*;
 pub use tilemap::*;
 
 use codegen::lua_rc;

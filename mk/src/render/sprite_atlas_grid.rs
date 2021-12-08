@@ -74,7 +74,7 @@ impl SpriteAtlasGrid {
     ) -> Result<Self, SpriteAtlasGridError> {
         let mut image_path = Err(IOError::new(IOErrorKind::NotFound, "cannot find a image"));
 
-        for ext in &["png", "jpg", "jpeg", "gif"] {
+        for ext in ["png", "jpg", "jpeg", "gif"] {
             let path = path.as_ref().with_extension(ext);
             match fs_metadata(&path) {
                 Ok(metadata) => {

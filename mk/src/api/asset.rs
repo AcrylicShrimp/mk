@@ -1,6 +1,9 @@
 use crate::api::use_context;
 use crate::codegen_traits::LuaApiTable;
-use crate::render::{LuaRcFont, LuaRcShader, LuaRcSprite, LuaRcSpriteAtlas, LuaRcSpriteAtlasGrid};
+use crate::render::{
+    LuaRcFont, LuaRcShader, LuaRcSprite, LuaRcSpriteAtlas, LuaRcSpriteAtlasGrid,
+    LuaRcSpriteNinePatch,
+};
 use mlua::prelude::*;
 
 pub struct FontAsset;
@@ -15,10 +18,10 @@ impl LuaApiTable for FontAsset {
             "load",
             lua.create_function(|_, name: String| {
                 let asset_mgr = use_context().asset_mgr();
-                let shader = asset_mgr.load(&name).map_err(|err| {
+                let asset = asset_mgr.load(&name).map_err(|err| {
                     format!("unable to load font '{}' due to: {}", name, err).to_lua_err()
                 })?;
-                Ok(LuaRcFont::from(shader))
+                Ok(LuaRcFont::from(asset))
             })?,
         )?;
         Ok(())
@@ -37,10 +40,10 @@ impl LuaApiTable for ShaderAsset {
             "load",
             lua.create_function(|_, name: String| {
                 let asset_mgr = use_context().asset_mgr();
-                let shader = asset_mgr.load(&name).map_err(|err| {
+                let asset = asset_mgr.load(&name).map_err(|err| {
                     format!("unable to load shader '{}' due to: {}", name, err).to_lua_err()
                 })?;
-                Ok(LuaRcShader::from(shader))
+                Ok(LuaRcShader::from(asset))
             })?,
         )?;
         Ok(())
@@ -59,10 +62,10 @@ impl LuaApiTable for SpriteAsset {
             "load",
             lua.create_function(|_, name: String| {
                 let asset_mgr = use_context().asset_mgr();
-                let shader = asset_mgr.load(&name).map_err(|err| {
+                let asset = asset_mgr.load(&name).map_err(|err| {
                     format!("unable to load sprite '{}' due to: {}", name, err).to_lua_err()
                 })?;
-                Ok(LuaRcSprite::from(shader))
+                Ok(LuaRcSprite::from(asset))
             })?,
         )?;
         Ok(())
@@ -81,10 +84,10 @@ impl LuaApiTable for SpriteAtlasAsset {
             "load",
             lua.create_function(|_, name: String| {
                 let asset_mgr = use_context().asset_mgr();
-                let shader = asset_mgr.load(&name).map_err(|err| {
+                let asset = asset_mgr.load(&name).map_err(|err| {
                     format!("unable to load sprite atlas '{}' due to: {}", name, err).to_lua_err()
                 })?;
-                Ok(LuaRcSpriteAtlas::from(shader))
+                Ok(LuaRcSpriteAtlas::from(asset))
             })?,
         )?;
         Ok(())
@@ -103,14 +106,40 @@ impl LuaApiTable for SpriteAtlasGridAsset {
             "load",
             lua.create_function(|_, name: String| {
                 let asset_mgr = use_context().asset_mgr();
-                let shader = asset_mgr.load(&name).map_err(|err| {
+                let asset = asset_mgr.load(&name).map_err(|err| {
                     format!(
                         "unable to load sprite atlas grid '{}' due to: {}",
                         name, err
                     )
                     .to_lua_err()
                 })?;
-                Ok(LuaRcSpriteAtlasGrid::from(shader))
+                Ok(LuaRcSpriteAtlasGrid::from(asset))
+            })?,
+        )?;
+        Ok(())
+    }
+}
+
+pub struct SpriteNinePatchAsset;
+
+impl LuaApiTable for SpriteNinePatchAsset {
+    fn api_name() -> &'static str {
+        "SpriteNinePatch"
+    }
+
+    fn fill_api_table(lua: &Lua, table: &LuaTable) -> LuaResult<()> {
+        table.set(
+            "load",
+            lua.create_function(|_, name: String| {
+                let asset_mgr = use_context().asset_mgr();
+                let asset = asset_mgr.load(&name).map_err(|err| {
+                    format!(
+                        "unable to load sprite nine-patch '{}' due to: {}",
+                        name, err
+                    )
+                    .to_lua_err()
+                })?;
+                Ok(LuaRcSpriteNinePatch::from(asset))
             })?,
         )?;
         Ok(())

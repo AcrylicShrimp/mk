@@ -155,7 +155,7 @@ impl Sprite {
     ) -> Result<Self, SpriteError> {
         let mut image_path = Err(IOError::new(IOErrorKind::NotFound, "cannot find a image"));
 
-        for ext in &["png", "jpg", "jpeg", "gif"] {
+        for ext in ["png", "jpg", "jpeg", "gif"] {
             let path = path.as_ref().with_extension(ext);
             match fs_metadata(&path) {
                 Ok(metadata) => {
@@ -244,10 +244,24 @@ impl Sprite {
     }
 
     pub fn width(&self) -> u32 {
-        self.texel_mapping.max().0 - self.texel_mapping.min().0
+        let lhs = self.texel_mapping.max().0;
+        let rhs = self.texel_mapping.min().0;
+
+        if lhs < rhs {
+            rhs - lhs
+        } else {
+            lhs - rhs
+        }
     }
 
     pub fn height(&self) -> u32 {
-        self.texel_mapping.max().1 - self.texel_mapping.min().1
+        let lhs = self.texel_mapping.max().1;
+        let rhs = self.texel_mapping.min().1;
+
+        if lhs < rhs {
+            rhs - lhs
+        } else {
+            lhs - rhs
+        }
     }
 }

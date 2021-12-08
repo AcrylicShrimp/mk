@@ -1,6 +1,7 @@
 mod camera;
 mod diagnostic;
 mod glyph_renderer;
+mod nine_patch_renderer;
 mod not_yet_complete;
 mod single_animator;
 mod sprite_renderer;
@@ -10,6 +11,7 @@ mod transform;
 pub use camera::*;
 pub use diagnostic::*;
 pub use glyph_renderer::*;
+pub use nine_patch_renderer::*;
 pub use not_yet_complete::*;
 pub use single_animator::*;
 pub use sprite_renderer::*;

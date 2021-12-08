@@ -196,6 +196,7 @@ pub fn run(
         asset_mgr.register_loader(loader::sprite_loader());
         asset_mgr.register_loader(loader::sprite_atlas_loader());
         asset_mgr.register_loader(loader::sprite_atlas_grid_loader());
+        asset_mgr.register_loader(loader::sprite_nine_patch_loader());
         asset_mgr.register_loader(loader::tilemap_loader());
     }
 

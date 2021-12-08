@@ -94,6 +94,7 @@ pub fn lua_api(lua: &Lua) -> LuaResult<LuaTable> {
     register_api_table::<SpriteAsset>(lua, &table)?;
     register_api_table::<SpriteAtlasAsset>(lua, &table)?;
     register_api_table::<SpriteAtlasGridAsset>(lua, &table)?;
+    register_api_table::<SpriteNinePatchAsset>(lua, &table)?;
     register_api_table::<Time>(lua, &table)?;
     register_api_table::<Transform>(lua, &table)?;
     register_api_table::<Vec2>(lua, &table)?;

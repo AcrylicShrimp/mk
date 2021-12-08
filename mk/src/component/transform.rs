@@ -49,7 +49,10 @@ impl Transform {
     }
 
     fn lua_set_position(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
-        self.with_transform_mut(move |t| Ok(t.position = Vec2::from_lua(value, lua)?))
+        self.with_transform_mut(move |t| {
+            t.mark_as_dirty();
+            Ok(t.position = Vec2::from_lua(value, lua)?)
+        })
     }
 
     fn lua_get_scale<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
@@ -57,7 +60,10 @@ impl Transform {
     }
 
     fn lua_set_scale(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
-        self.with_transform_mut(move |t| Ok(t.scale = Vec2::from_lua(value, lua)?))
+        self.with_transform_mut(move |t| {
+            t.mark_as_dirty();
+            Ok(t.scale = Vec2::from_lua(value, lua)?)
+        })
     }
 
     fn lua_get_angle<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
@@ -65,7 +71,10 @@ impl Transform {
     }
 
     fn lua_set_angle(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
-        self.with_transform_mut(move |t| Ok(t.angle = f32::from_lua(value, lua)?))
+        self.with_transform_mut(move |t| {
+            t.mark_as_dirty();
+            Ok(t.angle = f32::from_lua(value, lua)?)
+        })
     }
 }
 

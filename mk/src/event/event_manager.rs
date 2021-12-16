@@ -1,4 +1,4 @@
-use crate::event::*;
+use crate::event::EventDispatcher;
 
 #[derive(Default)]
 pub struct EventManager {

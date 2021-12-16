@@ -1,11 +1,9 @@
-use std::any::type_name;
-
-use crate::emit_diagnostic_error;
-
 use super::typed_event_listener::TypedEventListener;
+use crate::emit_diagnostic_error;
 use downcast_rs::{impl_downcast, Downcast};
 use mlua::prelude::*;
 use parking_lot::Mutex;
+use std::any::type_name;
 
 pub trait AbstractTypedEventBus
 where

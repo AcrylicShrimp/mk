@@ -39,7 +39,9 @@ macro_rules! impl_event_type_lua_api {
 mod diagnostic;
 mod input;
 mod lifecycles;
+mod per_entity;
 
 pub use diagnostic::*;
 pub use input::*;
 pub use lifecycles::*;
+pub use per_entity::*;

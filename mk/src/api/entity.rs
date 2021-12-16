@@ -36,6 +36,10 @@ pub struct Entity {
     #[lua_readonly]
     #[lua_userfunc(get=lua_get_tilemap_renderer)]
     tilemap_renderer: PhantomData<LuaComponentTilemapRenderer>,
+    #[lua_method]
+    listen: PhantomData<()>,
+    #[lua_method]
+    unlisten: PhantomData<()>,
 }
 
 impl Entity {
@@ -48,6 +52,8 @@ impl Entity {
             sprite_renderer: PhantomData,
             nine_patch_renderer: PhantomData,
             tilemap_renderer: PhantomData,
+            listen: PhantomData,
+            unlisten: PhantomData,
         }
     }
 
@@ -121,6 +127,19 @@ impl Entity {
                 .map(|_| LuaComponentTilemapRenderer::from(self.entity))
         })
         .to_lua(lua)
+    }
+
+    fn listen(&self, lua: &Lua, (event, function): (String, LuaFunction)) -> LuaResult<usize> {
+        use_context()
+            .entity_event_mgr_mut()
+            .add_entity_listener(lua, function, event, self.entity)
+    }
+
+    fn unlisten(&self, _lua: &Lua, handler: usize) -> LuaResult<()> {
+        use_context()
+            .entity_event_mgr_mut()
+            .remove_entity_listener(self.entity, handler);
+        Ok(())
     }
 }
 

@@ -1,10 +1,11 @@
+use crate::api::use_context;
 use crate::asset::*;
-use crate::emit_diagnostic_info;
 use crate::event::*;
 use crate::render::*;
 use crate::system::*;
 #[cfg(debug_assertions)]
 use crate::util::*;
+use crate::{emit_diagnostic_error, emit_diagnostic_info};
 use crate::{EngineContext, EngineContextWithoutSystemManager, EngineError};
 #[cfg(debug_assertions)]
 use colored::*;
@@ -43,6 +44,18 @@ pub fn run(
     let context = EngineContext::new(width, height, asset_base.into())?;
     let (mut system_mgr, rest) = context.into_split();
 
+    rest.event_mgr()
+        .dispatcher()
+        .add_listener(TypedEventListener::Native(BoxId::from_box(Box::new(
+            |event: &events::PerEntity| {
+                if let Err(err) = use_context().entity_event_mgr().emit(use_context().lua_mgr().lua(), event) {
+                    emit_diagnostic_error!(format!(
+                        "an error occurred while handing entity event {{entity={:?}; event={}}}: {}",
+                        event.entity, event.event, err
+                    ));
+                }
+            },
+        ))));
     rest.lua_mgr().init_lua(rest.clone(), "mk")?;
 
     #[cfg(debug_assertions)]

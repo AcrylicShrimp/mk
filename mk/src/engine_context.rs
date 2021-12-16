@@ -1,6 +1,6 @@
 use crate::api::LuaManager;
 use crate::asset::AssetManager;
-use crate::event::EventManager;
+use crate::event::{EntityEventManager, EventManager};
 use crate::input::InputManager;
 use crate::render::{GlyphManager, RenderManager, ScreenManager};
 use crate::system::SystemManager;
@@ -21,6 +21,7 @@ pub struct EngineContextWithoutSystemManager {
     transform_mgr: RefCell<TransformManager>,
     lua_mgr: LuaManager,
     event_mgr: EventManager,
+    entity_event_mgr: RefCell<EntityEventManager>,
     glyph_mgr: RefCell<GlyphManager>,
     render_mgr: RefCell<RenderManager>,
 }
@@ -36,6 +37,7 @@ impl EngineContextWithoutSystemManager {
             transform_mgr: TransformManager::new().into(),
             lua_mgr: LuaManager::new(),
             event_mgr: EventManager::new(),
+            entity_event_mgr: EntityEventManager::new().into(),
             glyph_mgr: GlyphManager::new().into(),
             render_mgr: RenderManager::new().into(),
         }
@@ -95,6 +97,14 @@ impl EngineContextWithoutSystemManager {
 
     pub fn event_mgr(&self) -> &EventManager {
         &self.event_mgr
+    }
+
+    pub fn entity_event_mgr(&self) -> Ref<EntityEventManager> {
+        self.entity_event_mgr.borrow()
+    }
+
+    pub fn entity_event_mgr_mut(&self) -> RefMut<EntityEventManager> {
+        self.entity_event_mgr.borrow_mut()
     }
 
     pub fn render_mgr(&self) -> Ref<RenderManager> {

@@ -171,6 +171,7 @@ pub fn run(
             },
         );
     });
+    system_mgr.register_system(-10199, SizeSystem::new());
     system_mgr.register_system(-10200, |context: &EngineContextWithoutSystemManager| {
         context.event_mgr().dispatcher().emit(
             context.lua_mgr().lua(),

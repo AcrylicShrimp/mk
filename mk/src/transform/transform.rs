@@ -1,4 +1,5 @@
 use crate::structure::Vec2;
+use crate::transform::TransformManager;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Transform {
@@ -56,7 +57,51 @@ impl Transform {
         self.mark_as_dirty();
     }
 
+    pub fn transform_point(&self, p: Vec2) -> Vec2 {
+        let rad = self.angle.to_radians();
+        let cos = rad.cos();
+        let sin = rad.sin();
+
+        Vec2::new(
+            self.scale.x * cos * p.x - self.scale.y * sin * p.y + self.position.x,
+            self.scale.x * sin * p.x + self.scale.y * cos * p.y + self.position.y,
+        )
+    }
+
+    pub fn transform_point_inverse(&self, p: Vec2) -> Vec2 {
+        let rad = self.angle.to_radians();
+        let cos = rad.cos();
+        let sin = rad.sin();
+
+        let scale_inv_x = 1.0 / self.scale.x;
+        let scale_inv_y = 1.0 / self.scale.y;
+
+        Vec2::new(
+            scale_inv_x * cos * (p.x - self.position.x)
+                + scale_inv_y * sin * (p.y - self.position.y),
+            scale_inv_x * -sin * (p.x - self.position.x)
+                + scale_inv_y * cos * (p.y - self.position.y),
+        )
+    }
+
+    pub fn transform_direction(&self, d: Vec2) -> Vec2 {
+        let rad = self.angle.to_radians();
+        let cos = rad.cos();
+        let sin = rad.sin();
+
+        Vec2::new(cos * d.x - sin * d.y, sin * d.x + cos * d.y)
+    }
+
+    pub fn transform_direction_inverse(&self, d: Vec2) -> Vec2 {
+        let rad = self.angle.to_radians();
+        let cos = rad.cos();
+        let sin = rad.sin();
+
+        Vec2::new(cos * d.x + sin * d.y, -sin * d.x + cos * d.y)
+    }
+
     pub fn to_matrix(&self, matrix: &mut [f32; 9]) {
+        // Affine order: scale, rotate -> translate
         let rad = self.angle.to_radians();
         let cos = rad.cos();
         let sin = rad.sin();
@@ -133,6 +178,129 @@ impl Transform {
         matrix[6] = m6;
         matrix[7] = m7;
         matrix[8] = m8;
+    }
+}
+
+impl Transform {
+    pub fn world_position(index: u32, transform_mgr: &TransformManager) -> Vec2 {
+        let mut transform_index = Some(index);
+        let mut position = Vec2::new(0f32, 0f32);
+
+        while let Some(index) = transform_index {
+            let transform = transform_mgr.transform(index);
+            transform_index = transform.parent_index();
+            position = transform.transform_point(position);
+        }
+
+        position
+    }
+
+    pub fn set_world_position(
+        index: u32,
+        transform_mgr: &mut TransformManager,
+        mut position: Vec2,
+    ) {
+        let mut transform_indices = Vec::with_capacity(8);
+        let mut transform_index = Some(index);
+
+        while let Some(index) = transform_index {
+            let transform = transform_mgr.transform(index);
+            transform_indices.push(index);
+            transform_index = transform.parent_index();
+        }
+
+        let mut iter = transform_indices.iter().rev().peekable();
+
+        while let Some(&index) = iter.next() {
+            if iter.peek().is_none() {
+                break;
+            }
+
+            let transform = transform_mgr.transform(index);
+            position = transform.transform_point_inverse(position);
+        }
+
+        let transform = transform_mgr.transform_mut(index);
+        transform.position = position;
+        transform.mark_as_dirty();
+    }
+
+    pub fn world_scale(index: u32, transform_mgr: &TransformManager) -> Vec2 {
+        let mut transform_index = Some(index);
+        let mut scale = Vec2::new(1f32, 1f32);
+
+        while let Some(index) = transform_index {
+            let transform = transform_mgr.transform(index);
+            transform_index = transform.parent_index();
+            scale *= transform.scale;
+        }
+
+        scale
+    }
+
+    pub fn set_world_scale(index: u32, transform_mgr: &mut TransformManager, mut scale: Vec2) {
+        let mut transform_indices = Vec::with_capacity(8);
+        let mut transform_index = Some(index);
+
+        while let Some(index) = transform_index {
+            let transform = transform_mgr.transform(index);
+            transform_indices.push(index);
+            transform_index = transform.parent_index();
+        }
+
+        let mut iter = transform_indices.iter().rev().peekable();
+
+        while let Some(&index) = iter.next() {
+            if iter.peek().is_none() {
+                break;
+            }
+
+            let transform = transform_mgr.transform(index);
+            scale /= transform.scale;
+        }
+
+        let transform = transform_mgr.transform_mut(index);
+        transform.scale = scale;
+        transform.mark_as_dirty();
+    }
+
+    pub fn world_angle(index: u32, transform_mgr: &TransformManager) -> f32 {
+        let mut transform_index = Some(index);
+        let mut angle = 0f32;
+
+        while let Some(index) = transform_index {
+            let transform = transform_mgr.transform(index);
+            transform_index = transform.parent_index();
+            angle += transform.angle;
+        }
+
+        angle
+    }
+
+    pub fn set_world_angle(index: u32, transform_mgr: &mut TransformManager, mut angle: f32) {
+        let mut transform_indices = Vec::with_capacity(8);
+        let mut transform_index = Some(index);
+
+        while let Some(index) = transform_index {
+            let transform = transform_mgr.transform(index);
+            transform_indices.push(index);
+            transform_index = transform.parent_index();
+        }
+
+        let mut iter = transform_indices.iter().rev().peekable();
+
+        while let Some(&index) = iter.next() {
+            if iter.peek().is_none() {
+                break;
+            }
+
+            let transform = transform_mgr.transform(index);
+            angle -= transform.angle;
+        }
+
+        let transform = transform_mgr.transform_mut(index);
+        transform.angle = angle;
+        transform.mark_as_dirty();
     }
 }
 

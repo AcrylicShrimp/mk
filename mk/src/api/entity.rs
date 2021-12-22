@@ -3,7 +3,7 @@ use crate::codegen_traits::LuaApiTable;
 use crate::component::{
     Camera, GlyphRenderer, GlyphRendererConfig, LuaComponentCamera, LuaComponentGlyphRenderer,
     LuaComponentNinePatchRenderer, LuaComponentSpriteRenderer, LuaComponentTilemapRenderer,
-    NinePatchRenderer, SpriteRenderer, TilemapRenderer, Transform,
+    NinePatchRenderer, Size, SpriteRenderer, TilemapRenderer, Transform,
 };
 use crate::render::{
     Color, LuaRcFont, LuaRcShader, LuaRcSprite, LuaRcSpriteNinePatch, LuaRcTilemap,
@@ -21,6 +21,9 @@ pub struct Entity {
     #[lua_readonly]
     #[lua_userfunc(get=lua_get_transform)]
     transform: PhantomData<Transform>,
+    #[lua_readonly]
+    #[lua_userfunc(get=lua_get_size)]
+    size: PhantomData<Size>,
     #[lua_readonly]
     #[lua_userfunc(get=lua_get_camera)]
     camera: PhantomData<LuaComponentCamera>,
@@ -47,6 +50,7 @@ impl Entity {
         Self {
             entity,
             transform: PhantomData,
+            size: PhantomData,
             camera: PhantomData,
             glyph_renderer: PhantomData,
             sprite_renderer: PhantomData,
@@ -81,6 +85,11 @@ impl Entity {
 
     fn lua_get_transform<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
         self.with_entry(|e| e.get_component::<Transform>().ok().cloned())
+            .to_lua(lua)
+    }
+
+    fn lua_get_size<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        self.with_entry(|e| e.get_component::<Size>().ok().cloned())
             .to_lua(lua)
     }
 
@@ -162,6 +171,7 @@ impl LuaApiTable for Entity {
                 let transform = transform_mgr.alloc(entity);
 
                 entry.add_component(Transform::new(transform));
+                entry.add_component(Size::new(transform));
 
                 transform_mgr.set_name(transform, param.name);
 

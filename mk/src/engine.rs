@@ -3,7 +3,6 @@ use crate::asset::*;
 use crate::event::*;
 use crate::render::*;
 use crate::system::*;
-#[cfg(debug_assertions)]
 use crate::util::*;
 use crate::{emit_diagnostic_error, emit_diagnostic_info};
 use crate::{EngineContext, EngineContextWithoutSystemManager, EngineError};

@@ -6,7 +6,7 @@ use crate::render::{GlyphManager, RenderManager, ScreenManager};
 use crate::system::SystemManager;
 use crate::time::TimeManager;
 use crate::transform::TransformManager;
-use crate::ui::UIManager;
+use crate::ui::{UIEventManager, UIManager};
 use crate::EngineError;
 use legion::World;
 use std::borrow::BorrowMut;
@@ -27,6 +27,7 @@ pub struct EngineContextWithoutSystemManager {
     glyph_mgr: RefCell<GlyphManager>,
     render_mgr: RefCell<RenderManager>,
     ui_mgr: RefCell<UIManager>,
+    ui_event_mgr: RefCell<UIEventManager>,
 }
 
 impl EngineContextWithoutSystemManager {
@@ -44,6 +45,7 @@ impl EngineContextWithoutSystemManager {
             glyph_mgr: GlyphManager::new().into(),
             render_mgr: RenderManager::new().into(),
             ui_mgr: UIManager::new().into(),
+            ui_event_mgr: UIEventManager::new().into(),
         }
     }
 
@@ -133,6 +135,14 @@ impl EngineContextWithoutSystemManager {
 
     pub fn ui_mgr_mut(&self) -> RefMut<UIManager> {
         self.ui_mgr.borrow_mut()
+    }
+
+    pub fn ui_event_mgr(&self) -> Ref<UIEventManager> {
+        self.ui_event_mgr.borrow()
+    }
+
+    pub fn ui_event_mgr_mut(&self) -> RefMut<UIEventManager> {
+        self.ui_event_mgr.borrow_mut()
     }
 }
 

@@ -287,6 +287,7 @@ pub fn run(
                 rest.event_mgr()
                     .dispatcher()
                     .emit(rest.lua_mgr().lua(), &events::PointerExit);
+                rest.ui_event_mgr_mut().handle_mouse_exit();
 
                 return;
             }
@@ -303,6 +304,8 @@ pub fn run(
                         pointer_y: position.y,
                     },
                 );
+                rest.ui_event_mgr_mut()
+                    .handle_mouse_move(position.x as f32, position.y as f32);
 
                 return;
             }
@@ -325,6 +328,7 @@ pub fn run(
                                 button: button_name,
                             },
                         );
+                        rest.ui_event_mgr_mut().handle_mouse_button_down(button);
                     }
                     ElementState::Released => {
                         rest.event_mgr().dispatcher().emit(
@@ -333,6 +337,7 @@ pub fn run(
                                 button: button_name,
                             },
                         );
+                        rest.ui_event_mgr_mut().handle_mouse_button_up(button);
                     }
                 }
 

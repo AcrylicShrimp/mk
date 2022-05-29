@@ -9,7 +9,6 @@ use crate::transform::TransformManager;
 use crate::ui::{UIEventManager, UIManager};
 use crate::EngineError;
 use legion::World;
-use std::borrow::BorrowMut;
 use std::cell::{Ref, RefCell, RefMut};
 use std::path::PathBuf;
 use std::sync::Arc;

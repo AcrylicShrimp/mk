@@ -9,9 +9,9 @@ pub struct TransformManager {
     childrens: Vec<Vec<u32>>,
     names: Vec<Option<String>>,
     name_map: HashMap<String, Vec<u32>>,
-    removed_indices: Vec<u32>,
     world_matrices: Vec<f32>,
     flattener: TransformFlattener,
+    removed_indices: Vec<u32>,
 }
 
 impl TransformManager {
@@ -244,9 +244,9 @@ impl Default for TransformManager {
             childrens: Vec::with_capacity(1024),
             names: Vec::with_capacity(1024),
             name_map: HashMap::new(),
-            removed_indices: Vec::with_capacity(1024),
             world_matrices: Vec::with_capacity(1024 * 9),
             flattener: TransformFlattener::new(),
+            removed_indices: Vec::with_capacity(1024),
         }
     }
 }

@@ -6,8 +6,10 @@ use crate::render::{GlyphManager, RenderManager, ScreenManager};
 use crate::system::SystemManager;
 use crate::time::TimeManager;
 use crate::transform::TransformManager;
+use crate::ui::UIManager;
 use crate::EngineError;
 use legion::World;
+use std::borrow::BorrowMut;
 use std::cell::{Ref, RefCell, RefMut};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -24,6 +26,7 @@ pub struct EngineContextWithoutSystemManager {
     entity_event_mgr: RefCell<EntityEventManager>,
     glyph_mgr: RefCell<GlyphManager>,
     render_mgr: RefCell<RenderManager>,
+    ui_mgr: RefCell<UIManager>,
 }
 
 impl EngineContextWithoutSystemManager {
@@ -40,6 +43,7 @@ impl EngineContextWithoutSystemManager {
             entity_event_mgr: EntityEventManager::new().into(),
             glyph_mgr: GlyphManager::new().into(),
             render_mgr: RenderManager::new().into(),
+            ui_mgr: UIManager::new().into(),
         }
     }
 
@@ -107,6 +111,14 @@ impl EngineContextWithoutSystemManager {
         self.entity_event_mgr.borrow_mut()
     }
 
+    pub fn glyph_mgr(&self) -> Ref<GlyphManager> {
+        self.glyph_mgr.borrow()
+    }
+
+    pub fn glyph_mgr_mut(&self) -> RefMut<GlyphManager> {
+        self.glyph_mgr.borrow_mut()
+    }
+
     pub fn render_mgr(&self) -> Ref<RenderManager> {
         self.render_mgr.borrow()
     }
@@ -115,12 +127,12 @@ impl EngineContextWithoutSystemManager {
         self.render_mgr.borrow_mut()
     }
 
-    pub fn glyph_mgr(&self) -> Ref<GlyphManager> {
-        self.glyph_mgr.borrow()
+    pub fn ui_mgr(&self) -> Ref<UIManager> {
+        self.ui_mgr.borrow()
     }
 
-    pub fn glyph_mgr_mut(&self) -> RefMut<GlyphManager> {
-        self.glyph_mgr.borrow_mut()
+    pub fn ui_mgr_mut(&self) -> RefMut<UIManager> {
+        self.ui_mgr.borrow_mut()
     }
 }
 

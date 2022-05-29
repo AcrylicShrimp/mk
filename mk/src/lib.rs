@@ -15,6 +15,7 @@ pub mod structure;
 pub mod system;
 pub mod time;
 pub mod transform;
+pub mod ui;
 pub mod util;
 
 pub use engine::run;

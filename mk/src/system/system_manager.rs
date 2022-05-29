@@ -14,8 +14,16 @@ impl SystemManager {
             .push(Box::new(system));
     }
 
-    pub fn run(&mut self, context: &EngineContextWithoutSystemManager) {
-        for (_, systems) in &mut self.systems {
+    pub fn run(&mut self, context: &EngineContextWithoutSystemManager, from: isize, to: isize) {
+        for (&priority, systems) in &mut self.systems {
+            if priority < from {
+                continue;
+            }
+
+            if to < priority {
+                break;
+            }
+
             for system in systems {
                 system.run(context);
             }

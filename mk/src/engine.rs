@@ -10,7 +10,7 @@ use crate::{EngineContext, EngineContextWithoutSystemManager, EngineError};
 #[cfg(debug_assertions)]
 use colored::*;
 use glutin::dpi::LogicalSize;
-use glutin::event::{ElementState, Event, WindowEvent};
+use glutin::event::{ElementState, Event, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
 use glutin::window::WindowBuilder;
 use glutin::{ContextBuilder, GlProfile};
@@ -142,12 +142,6 @@ pub fn run(
     system_mgr.register_system(isize::MIN, |context: &EngineContextWithoutSystemManager| {
         context.time_mgr_mut().update();
     });
-    system_mgr.register_system(
-        isize::MIN + 1,
-        |context: &EngineContextWithoutSystemManager| {
-            context.render_mgr().update_uniforms(context);
-        },
-    );
     system_mgr.register_system(-10000, |context: &EngineContextWithoutSystemManager| {
         context.event_mgr().dispatcher().emit(
             context.lua_mgr().lua(),
@@ -156,14 +150,14 @@ pub fn run(
             },
         );
     });
-    system_mgr.register_system(-10001, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-10100, |context: &EngineContextWithoutSystemManager| {
         animate_sigle_animations(
             &mut context.world_mut(),
             &context.time_mgr(),
             &mut context.transform_mgr_mut(),
         );
     });
-    system_mgr.register_system(-10100, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-10200, |context: &EngineContextWithoutSystemManager| {
         context.event_mgr().dispatcher().emit(
             context.lua_mgr().lua(),
             &events::Update {
@@ -171,14 +165,20 @@ pub fn run(
             },
         );
     });
-    system_mgr.register_system(-10199, SizeSystem::new());
-    system_mgr.register_system(-10200, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-10300, SizeSystem::new());
+    system_mgr.register_system(-10400, |context: &EngineContextWithoutSystemManager| {
         context.event_mgr().dispatcher().emit(
             context.lua_mgr().lua(),
             &events::PostUpdate {
                 dt: context.time_mgr().dt(),
             },
         );
+    });
+    system_mgr.register_system(-10500, |context: &EngineContextWithoutSystemManager| {
+        context.transform_mgr_mut().update_world_matrices();
+    });
+    system_mgr.register_system(-10600, |context: &EngineContextWithoutSystemManager| {
+        context.ui_mgr_mut().update_elements();
     });
     system_mgr.register_system(0, |context: &EngineContextWithoutSystemManager| {
         context.event_mgr().dispatcher().emit(
@@ -188,8 +188,8 @@ pub fn run(
             },
         );
     });
-    system_mgr.register_system(99, |context: &EngineContextWithoutSystemManager| {
-        context.transform_mgr_mut().update_world_matrices();
+    system_mgr.register_system(1, |context: &EngineContextWithoutSystemManager| {
+        context.render_mgr().update_uniforms(context);
     });
     system_mgr.register_system(100, RendererSystem::new());
     system_mgr.register_system(200, |context: &EngineContextWithoutSystemManager| {
@@ -243,6 +243,8 @@ pub fn run(
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
 
+        system_mgr.run(&rest, isize::MIN, -1);
+
         match event {
             Event::MainEventsCleared => {}
             Event::WindowEvent {
@@ -263,6 +265,74 @@ pub fn run(
                                 .dispatcher()
                                 .emit(rest.lua_mgr().lua(), &events::KeyUp::from_key(key));
                         }
+                    }
+                }
+
+                return;
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CursorEntered { .. },
+                window_id: id,
+            } if id == window_id => {
+                rest.event_mgr()
+                    .dispatcher()
+                    .emit(rest.lua_mgr().lua(), &events::PointerEnter);
+
+                return;
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CursorLeft { .. },
+                window_id: id,
+            } if id == window_id => {
+                rest.event_mgr()
+                    .dispatcher()
+                    .emit(rest.lua_mgr().lua(), &events::PointerExit);
+
+                return;
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CursorMoved { position, .. },
+                window_id: id,
+            } if id == window_id => {
+                let position = position.to_logical(rest.screen_mgr().scale_factor());
+
+                rest.event_mgr().dispatcher().emit(
+                    rest.lua_mgr().lua(),
+                    &events::PointerMove {
+                        pointer_x: position.x,
+                        pointer_y: position.y,
+                    },
+                );
+
+                return;
+            }
+            Event::WindowEvent {
+                event: WindowEvent::MouseInput { button, state, .. },
+                window_id: id,
+            } if id == window_id => {
+                let button_name = match button {
+                    MouseButton::Left => "left",
+                    MouseButton::Right => "right",
+                    MouseButton::Middle => "middle",
+                    _ => return,
+                };
+
+                match state {
+                    ElementState::Pressed => {
+                        rest.event_mgr().dispatcher().emit(
+                            rest.lua_mgr().lua(),
+                            &events::PointerDown {
+                                button: button_name,
+                            },
+                        );
+                    }
+                    ElementState::Released => {
+                        rest.event_mgr().dispatcher().emit(
+                            rest.lua_mgr().lua(),
+                            &events::PointerUp {
+                                button: button_name,
+                            },
+                        );
                     }
                 }
 
@@ -299,8 +369,7 @@ pub fn run(
         }
 
         clear();
-
-        system_mgr.run(&rest);
+        system_mgr.run(&rest, 0, isize::MAX);
 
         gfx_context.swap_buffers().unwrap();
     });

@@ -8,6 +8,7 @@ mod size;
 mod sprite_renderer;
 mod tilemap_renderer;
 mod transform;
+mod ui_element;
 
 pub use camera::*;
 pub use diagnostic::*;
@@ -19,3 +20,4 @@ pub use size::*;
 pub use sprite_renderer::*;
 pub use tilemap_renderer::*;
 pub use transform::*;
+pub use ui_element::*;

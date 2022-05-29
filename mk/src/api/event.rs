@@ -1,6 +1,7 @@
 use crate::codegen_traits::LuaApiTable;
 use crate::event::events::{
-    Diagnostic, KeyDown, KeyUp, PostRender, PostUpdate, PreRender, PreUpdate, Update,
+    Diagnostic, KeyDown, KeyUp, PointerDown, PointerEnter, PointerExit, PointerMove, PointerUp,
+    PostRender, PostUpdate, PreRender, PreUpdate, Update,
 };
 use mlua::prelude::*;
 
@@ -23,6 +24,11 @@ impl LuaApiTable for Event {
         register_api_table::<PostRender>(lua, &table)?;
         register_api_table::<KeyDown>(lua, &table)?;
         register_api_table::<KeyUp>(lua, &table)?;
+        register_api_table::<PointerEnter>(lua, &table)?;
+        register_api_table::<PointerExit>(lua, &table)?;
+        register_api_table::<PointerMove>(lua, &table)?;
+        register_api_table::<PointerDown>(lua, &table)?;
+        register_api_table::<PointerUp>(lua, &table)?;
         Ok(())
     }
 }

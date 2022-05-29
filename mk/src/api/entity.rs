@@ -3,7 +3,7 @@ use crate::codegen_traits::LuaApiTable;
 use crate::component::{
     Camera, GlyphRenderer, GlyphRendererConfig, LuaComponentCamera, LuaComponentGlyphRenderer,
     LuaComponentNinePatchRenderer, LuaComponentSpriteRenderer, LuaComponentTilemapRenderer,
-    NinePatchRenderer, Size, SpriteRenderer, TilemapRenderer, Transform,
+    NinePatchRenderer, Size, SpriteRenderer, TilemapRenderer, Transform, UIElement,
 };
 use crate::render::{
     Color, LuaRcFont, LuaRcShader, LuaRcSprite, LuaRcSpriteNinePatch, LuaRcTilemap,
@@ -24,6 +24,9 @@ pub struct Entity {
     #[lua_readonly]
     #[lua_userfunc(get=lua_get_size)]
     size: PhantomData<Size>,
+    #[lua_readonly]
+    #[lua_userfunc(get=lua_get_ui_element)]
+    ui_element: PhantomData<UIElement>,
     #[lua_readonly]
     #[lua_userfunc(get=lua_get_camera)]
     camera: PhantomData<LuaComponentCamera>,
@@ -51,6 +54,7 @@ impl Entity {
             entity,
             transform: PhantomData,
             size: PhantomData,
+            ui_element: PhantomData,
             camera: PhantomData,
             glyph_renderer: PhantomData,
             sprite_renderer: PhantomData,
@@ -90,6 +94,11 @@ impl Entity {
 
     fn lua_get_size<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
         self.with_entry(|e| e.get_component::<Size>().ok().cloned())
+            .to_lua(lua)
+    }
+
+    fn lua_get_ui_element<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        self.with_entry(|e| e.get_component::<UIElement>().ok().cloned())
             .to_lua(lua)
     }
 
@@ -192,6 +201,23 @@ impl LuaApiTable for Entity {
                     if let Some(angle) = param.angle {
                         transform.angle = angle;
                     }
+                }
+
+                if let Some(param) = param.ui_element {
+                    let mut ui_mgr = context.ui_mgr_mut();
+                    let element = ui_mgr.alloc(entity);
+
+                    if let Some(is_interactible) = param.is_interactible {
+                        ui_mgr
+                            .element_mut(element)
+                            .set_interactible(is_interactible);
+                    }
+
+                    ui_mgr
+                        .element_mut(element)
+                        .set_order_index(param.order_index);
+
+                    entry.add_component(UIElement::new(element));
                 }
 
                 if let Some(param) = param.camera {
@@ -352,6 +378,35 @@ impl<'lua> FromLua<'lua> for TransformBuildParam {
             } else {
                 None
             },
+        })
+    }
+}
+
+struct UIElementBuildParam {
+    pub is_interactible: Option<bool>,
+    pub order_index: u32,
+}
+
+impl<'lua> FromLua<'lua> for UIElementBuildParam {
+    #[allow(unused_variables)]
+    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
+        let table = match value {
+            LuaValue::Table(table) => table,
+            _ => {
+                return Err(
+                    format!("the type {} must be a {}", "UIElementBuildParam", "table")
+                        .to_lua_err(),
+                );
+            }
+        };
+
+        Ok(Self {
+            is_interactible: if table.contains_key("is_interactible")? {
+                Some(table.get("is_interactible")?)
+            } else {
+                None
+            },
+            order_index: table.get("order_index")?,
         })
     }
 }
@@ -581,6 +636,7 @@ impl<'lua> FromLua<'lua> for TilemapRendererBuildParam {
 struct EntityBuildParam {
     name: Option<String>,
     transform: Option<TransformBuildParam>,
+    ui_element: Option<UIElementBuildParam>,
     camera: Option<CameraBuildParam>,
     glyph_renderer: Option<GlyphRendererBuildParam>,
     sprite_renderer: Option<SpriteRendererBuildParam>,
@@ -603,6 +659,11 @@ impl<'lua> FromLua<'lua> for EntityBuildParam {
         Ok(Self {
             name: if table.contains_key("name")? {
                 Some(table.get("name")?)
+            } else {
+                None
+            },
+            ui_element: if table.contains_key("ui_element")? {
+                Some(table.get("ui_element")?)
             } else {
                 None
             },

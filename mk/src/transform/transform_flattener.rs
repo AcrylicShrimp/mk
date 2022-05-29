@@ -25,16 +25,12 @@ impl TransformFlattener {
             let mut marked = false;
             let (mut ptr, end_ptr) = (range.start, range.end);
 
-            loop {
-                if ptr == end_ptr {
-                    break;
-                }
-
-                if !(&mut unsafe { &mut *ptr }).is_dirty() {
-                    if let Some(parent_index) = (&mut unsafe { &mut *ptr }).parent_index() {
+            while ptr != end_ptr {
+                if !(unsafe { &mut *ptr }).is_dirty() {
+                    if let Some(parent_index) = (unsafe { &mut *ptr }).parent_index() {
                         if transforms[parent_index as usize].is_dirty() {
                             marked = true;
-                            (&mut unsafe { &mut *ptr }).mark_as_dirty();
+                            (unsafe { &mut *ptr }).mark_as_dirty();
                         }
                     }
                 }

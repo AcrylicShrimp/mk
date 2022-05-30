@@ -26,12 +26,15 @@ impl System for SizeSystem {
             |(glyph_renderer, size)| {
                 let (_, layout) = glyph_renderer.font_and_layout();
                 let glyphs = layout.glyphs();
+                let (mut width, mut height) = (size.width, size.height);
 
                 for glyph in glyphs {
-                    size.width = f32::max(size.width, glyph.x + glyph.width as f32);
+                    width = f32::max(width, glyph.x + glyph.width as f32);
                 }
 
-                size.height = f32::max(size.height, layout.height());
+                height = f32::max(height, layout.height());
+                size.width = width;
+                size.height = height;
             },
         );
 

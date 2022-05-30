@@ -32,3 +32,6 @@ serde_json = { version = "1" }
 
 [features]
 res_writer = ["res/writer"]
+
+[profile.release]
+debug = true

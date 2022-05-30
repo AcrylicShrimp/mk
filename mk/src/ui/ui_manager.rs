@@ -140,8 +140,8 @@ impl UIManager {
                     + camera_to_local[5];
 
                 if 0f32 <= local_x
-                    && local_x <= element.size.x
-                    && -element.size.y <= local_y
+                    && local_x <= element.width
+                    && -element.height <= local_y
                     && local_y <= 0f32
                 {
                     return Some(self.entities[index as usize]);

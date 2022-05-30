@@ -1,8 +1,7 @@
-use crate::structure::Vec2;
-
 #[derive(Debug, Clone)]
 pub struct UIElement {
-    pub size: Vec2,
+    pub width: f32,
+    pub height: f32,
     pub flags: u32,
 }
 
@@ -51,7 +50,8 @@ impl UIElement {
 impl Default for UIElement {
     fn default() -> Self {
         Self {
-            size: Vec2::new(100f32, 30f32),
+            width: 0f32,
+            height: 0f32,
             flags: 0b1100_0000_0000_0000_0000_0000_0000_0000,
         }
     }

@@ -93,8 +93,8 @@ impl UIManager {
             ],
         };
 
-        for (_, indices) in &self.ordered_indices {
-            for &index in indices {
+        for (_, indices) in self.ordered_indices.iter().rev() {
+            for &index in indices.iter().rev() {
                 let element = &self.elements[index as usize];
                 if !element.is_interactible() {
                     continue;

@@ -170,10 +170,10 @@ impl System for RendererSystem {
                             color.g,
                             color.b,
                             color.a,
-                            (mapping.min().0 as f32 + 0.5f32) / texture.width() as f32,
-                            (mapping.min().1 as f32 + 0.5f32) / texture.height() as f32,
-                            (mapping.max().0 as f32 - 0.5f32) / texture.width() as f32,
-                            (mapping.max().1 as f32 - 0.5f32) / texture.height() as f32,
+                            (mapping.min().0 as f32) / texture.width() as f32,
+                            (mapping.min().1 as f32) / texture.height() as f32,
+                            (mapping.max().0 as f32) / texture.width() as f32,
+                            (mapping.max().1 as f32) / texture.height() as f32,
                         ]);
 
                         texture_and_buffers.push((texture.handle(), buffer));
@@ -279,14 +279,10 @@ impl System for RendererSystem {
                         renderer.color.g,
                         renderer.color.b,
                         renderer.color.a,
-                        (sprite.texel_mapping().min().0 as f32 + 0.5f32)
-                            / sprite.texture().width() as f32,
-                        (sprite.texel_mapping().min().1 as f32 + 0.5f32)
-                            / sprite.texture().height() as f32,
-                        (sprite.texel_mapping().max().0 as f32 - 0.5f32)
-                            / sprite.texture().width() as f32,
-                        (sprite.texel_mapping().max().1 as f32 - 0.5f32)
-                            / sprite.texture().height() as f32,
+                        (sprite.texel_mapping().min().0 as f32) / sprite.texture().width() as f32,
+                        (sprite.texel_mapping().min().1 as f32) / sprite.texture().height() as f32,
+                        (sprite.texel_mapping().max().0 as f32) / sprite.texture().width() as f32,
+                        (sprite.texel_mapping().max().1 as f32) / sprite.texture().height() as f32,
                     ]);
 
                     let shader = &renderer.shader;
@@ -401,13 +397,13 @@ impl System for RendererSystem {
                                 renderer.color.g,
                                 renderer.color.b,
                                 renderer.color.a,
-                                (sprite.texel_mapping().min().0 as f32 + 0.5f32)
+                                (sprite.texel_mapping().min().0 as f32)
                                     / sprite.texture().width() as f32,
-                                (sprite.texel_mapping().min().1 as f32 + 0.5f32)
+                                (sprite.texel_mapping().min().1 as f32)
                                     / sprite.texture().height() as f32,
-                                (sprite.texel_mapping().max().0 as f32 - 0.5f32)
+                                (sprite.texel_mapping().max().0 as f32)
                                     / sprite.texture().width() as f32,
-                                (sprite.texel_mapping().max().1 as f32 - 0.5f32)
+                                (sprite.texel_mapping().max().1 as f32)
                                     / sprite.texture().height() as f32,
                             ]);
                         };

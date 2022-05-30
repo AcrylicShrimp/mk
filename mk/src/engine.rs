@@ -141,7 +141,7 @@ pub fn run(
     system_mgr.register_system(isize::MIN, |context: &EngineContextWithoutSystemManager| {
         context.time_mgr_mut().update();
     });
-    system_mgr.register_system(-10000, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-11000, |context: &EngineContextWithoutSystemManager| {
         context.event_mgr().dispatcher().emit(
             context.lua_mgr().lua(),
             &events::PreUpdate {
@@ -149,14 +149,14 @@ pub fn run(
             },
         );
     });
-    system_mgr.register_system(-10100, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-10900, |context: &EngineContextWithoutSystemManager| {
         animate_sigle_animations(
             &mut context.world_mut(),
             &context.time_mgr(),
             &mut context.transform_mgr_mut(),
         );
     });
-    system_mgr.register_system(-10200, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-10800, |context: &EngineContextWithoutSystemManager| {
         context.event_mgr().dispatcher().emit(
             context.lua_mgr().lua(),
             &events::Update {
@@ -164,8 +164,8 @@ pub fn run(
             },
         );
     });
-    system_mgr.register_system(-10300, SizeSystem::new());
-    system_mgr.register_system(-10400, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-10700, SizeSystem::new());
+    system_mgr.register_system(-10500, |context: &EngineContextWithoutSystemManager| {
         context.event_mgr().dispatcher().emit(
             context.lua_mgr().lua(),
             &events::PostUpdate {
@@ -173,10 +173,10 @@ pub fn run(
             },
         );
     });
-    system_mgr.register_system(-10500, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-10400, |context: &EngineContextWithoutSystemManager| {
         context.transform_mgr_mut().update_world_matrices();
     });
-    system_mgr.register_system(-10600, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-10300, |context: &EngineContextWithoutSystemManager| {
         context.ui_mgr_mut().update_elements();
     });
     system_mgr.register_system(0, |context: &EngineContextWithoutSystemManager| {

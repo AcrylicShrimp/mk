@@ -232,6 +232,8 @@ impl LuaApiTable for Entity {
                         <_>::from(param.shader),
                         <_>::from(param.font),
                         param.font_size,
+                        param.thickness,
+                        param.smoothness,
                     );
 
                     if let Some(layer) = param.layer {
@@ -450,6 +452,8 @@ struct GlyphRendererBuildParam {
     pub shader: LuaRcShader,
     pub font: LuaRcFont,
     pub font_size: f32,
+    pub thickness: f32,
+    pub smoothness: f32,
     pub config: Option<GlyphRendererConfig>,
     pub text: Option<String>,
 }
@@ -487,6 +491,8 @@ impl<'lua> FromLua<'lua> for GlyphRendererBuildParam {
             shader: table.get("shader")?,
             font: table.get("font")?,
             font_size: table.get("font_size")?,
+            thickness: table.get("thickness")?,
+            smoothness: table.get("smoothness")?,
             config: table.get("config")?,
             text: if table.contains_key("text")? {
                 Some(table.get("text")?)

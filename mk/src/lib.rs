@@ -8,6 +8,7 @@ mod engine;
 mod engine_context;
 mod engine_error;
 pub mod event;
+pub mod glyph;
 pub mod input;
 pub mod render;
 pub mod res;

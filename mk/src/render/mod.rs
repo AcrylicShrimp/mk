@@ -1,6 +1,6 @@
 mod color;
-mod glyph_manager;
-mod glyph_texture;
+// mod glyph_manager;
+// mod glyph_texture;
 mod layer;
 mod render_manager;
 mod screen_manager;
@@ -11,8 +11,8 @@ mod sprite_nine_patch;
 mod tilemap;
 
 pub use color::*;
-pub use glyph_manager::*;
-pub use glyph_texture::*;
+// pub use glyph_manager::*;
+// pub use glyph_texture::*;
 pub use layer::*;
 pub use render::*;
 pub use render_manager::*;

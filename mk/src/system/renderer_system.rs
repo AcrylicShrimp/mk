@@ -136,6 +136,7 @@ impl System for RendererSystem {
 
             let mut buffers = bump_vec![in &self.extra_bump];
             let mut renderers = bump_vec![in &self.extra_bump];
+            let sdf_inset = glyph_mgr.sdf_inset();
 
             <(&Transform, &mut GlyphRenderer)>::query()
                 .filter(!component::<Diagnostic>())
@@ -145,14 +146,23 @@ impl System for RendererSystem {
                     }
 
                     let color = renderer.color;
+                    let thickness = renderer.thickness;
+                    let smoothness = renderer.smoothness;
                     let matrix = transform_mgr.transform_world_matrix(transform.index());
                     let mut texture_and_buffers = bump_vec![in &self.extra_bump];
 
                     let (font, layout) = renderer.font_and_layout();
 
                     for glyph in layout.glyphs() {
-                        let (texture, mapping) = glyph_mgr.glyph(font, glyph.key);
+                        let g = glyph_mgr.glyph(font, glyph.key);
                         let mut buffer = render_mgr.alloc_buffer();
+
+                        let font_width_scale = glyph.width as f32
+                            / (g.mapping.width() as usize - 2 * sdf_inset) as f32;
+                        let font_height_scale = glyph.height as f32
+                            / (g.mapping.height() as usize - 2 * sdf_inset) as f32;
+                        let glyph_width = g.mapping.width() as f32 * font_width_scale;
+                        let glyph_height = g.mapping.height() as f32 * font_height_scale;
 
                         buffer.replace(&[
                             matrix[0],
@@ -161,22 +171,28 @@ impl System for RendererSystem {
                             matrix[3],
                             matrix[4],
                             matrix[5],
-                            matrix[6] + matrix[0] * glyph.x + matrix[3] * glyph.y,
-                            matrix[7] + matrix[1] * glyph.x + matrix[4] * glyph.y,
+                            matrix[6]
+                                + matrix[0] * (glyph.x - sdf_inset as f32 * font_width_scale)
+                                + matrix[3] * (glyph.y - sdf_inset as f32 * font_height_scale),
+                            matrix[7]
+                                + matrix[1] * (glyph.x - sdf_inset as f32 * font_width_scale)
+                                + matrix[4] * (glyph.y - sdf_inset as f32 * font_height_scale),
                             matrix[8],
-                            mapping.width() as f32,
-                            mapping.height() as f32,
+                            glyph_width,
+                            glyph_height,
                             color.r,
                             color.g,
                             color.b,
                             color.a,
-                            (mapping.min().0 as f32) / texture.width() as f32,
-                            (mapping.min().1 as f32) / texture.height() as f32,
-                            (mapping.max().0 as f32) / texture.width() as f32,
-                            (mapping.max().1 as f32) / texture.height() as f32,
+                            thickness,
+                            smoothness,
+                            (g.mapping.min().0 as f32 + 0.5f32) / g.texture.width() as f32,
+                            (g.mapping.min().1 as f32 + 0.5f32) / g.texture.height() as f32,
+                            (g.mapping.max().0 as f32 - 0.5f32) / g.texture.width() as f32,
+                            (g.mapping.max().1 as f32 - 0.5f32) / g.texture.height() as f32,
                         ]);
 
-                        texture_and_buffers.push((texture.handle(), buffer));
+                        texture_and_buffers.push((g.texture.handle(), buffer));
                     }
 
                     let shader = &renderer.shader;
@@ -238,11 +254,27 @@ impl System for RendererSystem {
                                     attribute.ty,
                                 );
                             }
-                            if let Some(attribute) = shader.attribute("uv_rect") {
+                            if let Some(attribute) = shader.attribute("thickness") {
                                 req.attribute_per_instance(
                                     attribute.location,
                                     &buffer,
                                     (size_of::<f32>() * 15) as _,
+                                    attribute.ty,
+                                );
+                            }
+                            if let Some(attribute) = shader.attribute("smoothness") {
+                                req.attribute_per_instance(
+                                    attribute.location,
+                                    &buffer,
+                                    (size_of::<f32>() * 16) as _,
+                                    attribute.ty,
+                                );
+                            }
+                            if let Some(attribute) = shader.attribute("uv_rect") {
+                                req.attribute_per_instance(
+                                    attribute.location,
+                                    &buffer,
+                                    (size_of::<f32>() * 17) as _,
                                     attribute.ty,
                                 );
                             }

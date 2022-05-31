@@ -156,6 +156,8 @@ pub struct GlyphRenderer {
     font: Arc<Font>,
     #[lua_userfunc(set=lua_set_font_size)]
     font_size: f32,
+    pub thickness: f32,
+    pub smoothness: f32,
     #[lua_userfunc(set=lua_set_config)]
     config: GlyphRendererConfig,
     #[lua_userfunc(set=lua_set_text)]
@@ -168,7 +170,13 @@ pub struct GlyphRenderer {
 }
 
 impl GlyphRenderer {
-    pub fn new(shader: Arc<Shader>, font: Arc<Font>, font_size: f32) -> Self {
+    pub fn new(
+        shader: Arc<Shader>,
+        font: Arc<Font>,
+        font_size: f32,
+        thickness: f32,
+        smoothness: f32,
+    ) -> Self {
         Self {
             layer: Layer::default(),
             order: 0,
@@ -176,6 +184,8 @@ impl GlyphRenderer {
             shader,
             font,
             font_size,
+            thickness,
+            smoothness,
             config: GlyphRendererConfig::default(),
             text: String::with_capacity(32),
             layout: Layout::new(CoordinateSystem::PositiveYUp),

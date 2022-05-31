@@ -1,8 +1,9 @@
 use crate::api::LuaManager;
 use crate::asset::AssetManager;
 use crate::event::{EntityEventManager, EventManager};
+use crate::glyph::GlyphManager;
 use crate::input::InputManager;
-use crate::render::{GlyphManager, RenderManager, ScreenManager};
+use crate::render::{RenderManager, ScreenManager};
 use crate::system::SystemManager;
 use crate::time::TimeManager;
 use crate::transform::TransformManager;
@@ -41,7 +42,7 @@ impl EngineContextWithoutSystemManager {
             lua_mgr: LuaManager::new(),
             event_mgr: EventManager::new(),
             entity_event_mgr: EntityEventManager::new().into(),
-            glyph_mgr: GlyphManager::new().into(),
+            glyph_mgr: GlyphManager::new(64f32, 8usize, 12usize, 0.35f32).into(),
             render_mgr: RenderManager::new().into(),
             ui_mgr: UIManager::new().into(),
             ui_event_mgr: UIEventManager::new().into(),

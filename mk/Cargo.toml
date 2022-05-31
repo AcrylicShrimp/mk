@@ -17,7 +17,7 @@ bumpalo = { version = "3", features = ["collections"] }
 crossbeam-channel = { version = "0.5" }
 colored = { version = "2" }
 downcast-rs = { version = "1" }
-fontdue = { version = "0.5" }
+fontdue = { version = "0.7" }
 gl = { version = "0.14" }
 glutin = { version = "0.26.0" }
 image = { version = "0.23" }

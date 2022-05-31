@@ -5,7 +5,6 @@ use fontdue::layout::{
 };
 use fontdue::Font;
 use mlua::prelude::*;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -164,9 +163,9 @@ pub struct GlyphRenderer {
     text: String,
     #[lua_hidden]
     layout: Layout,
-    #[lua_readonly]
-    #[lua_userfunc(get=lua_get_lines)]
-    lines: PhantomData<u32>,
+    // #[lua_readonly]
+    // #[lua_userfunc(get=lua_get_lines)]
+    // lines: PhantomData<u32>,
 }
 
 impl GlyphRenderer {
@@ -189,7 +188,7 @@ impl GlyphRenderer {
             config: GlyphRendererConfig::default(),
             text: String::with_capacity(32),
             layout: Layout::new(CoordinateSystem::PositiveYUp),
-            lines: PhantomData,
+            // lines: PhantomData,
         }
     }
 
@@ -282,7 +281,7 @@ impl GlyphRenderer {
         Ok(())
     }
 
-    fn lua_get_lines<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
-        self.layout.lines().to_lua(lua)
-    }
+    // fn lua_get_lines<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+    //     self.layout.lines().to_lua(lua)
+    // }
 }

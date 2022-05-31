@@ -63,6 +63,58 @@ impl Texture {
         }
     }
 
+    pub fn with_size_r_u8_smooth(width: u32, height: u32) -> Texture {
+        let handle = ptr_init!(ptr => gl33::GenTextures(1, ptr));
+
+        unsafe {
+            gl33::BindTexture(gl33::TEXTURE_2D, handle);
+            check_err!();
+            gl33::TexImage2D(
+                gl33::TEXTURE_2D,
+                0,
+                gl33::R8 as _,
+                width as _,
+                height as _,
+                0,
+                gl33::RED,
+                gl33::UNSIGNED_BYTE,
+                null(),
+            );
+            check_err!();
+            gl33::TexParameteri(
+                gl33::TEXTURE_2D,
+                gl33::TEXTURE_MIN_FILTER,
+                gl33::LINEAR as _,
+            );
+            check_err!();
+            gl33::TexParameteri(
+                gl33::TEXTURE_2D,
+                gl33::TEXTURE_MAG_FILTER,
+                gl33::LINEAR as _,
+            );
+            check_err!();
+            gl33::TexParameteri(
+                gl33::TEXTURE_2D,
+                gl33::TEXTURE_WRAP_S,
+                gl33::CLAMP_TO_EDGE as _,
+            );
+            check_err!();
+            gl33::TexParameteri(
+                gl33::TEXTURE_2D,
+                gl33::TEXTURE_WRAP_T,
+                gl33::CLAMP_TO_EDGE as _,
+            );
+            check_err!();
+        }
+
+        Texture {
+            handle,
+            width,
+            height,
+            format: TextureFormat::RU8,
+        }
+    }
+
     pub fn with_size_rg_u8(width: u32, height: u32) -> Texture {
         let handle = ptr_init!(ptr => gl33::GenTextures(1, ptr));
 

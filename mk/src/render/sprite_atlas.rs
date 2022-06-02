@@ -118,10 +118,10 @@ impl SpriteAtlas {
                 ColorType::La8 | ColorType::La16 => {
                     Texture::from_slice_rg_u8(width, height, image.to_luma_alpha8().as_raw())
                 }
-                ColorType::Rgb8 | ColorType::Rgb16 | ColorType::Bgr8 => {
+                ColorType::Rgb8 | ColorType::Rgb16 => {
                     Texture::from_slice_rgb_u8(width, height, image.to_rgb8().as_raw())
                 }
-                ColorType::Rgba8 | ColorType::Rgba16 | ColorType::Bgra8 => {
+                ColorType::Rgba8 | ColorType::Rgba16 => {
                     Texture::from_slice_rgba_u8(width, height, image.to_rgba8().as_raw())
                 }
                 _ => unreachable!(),

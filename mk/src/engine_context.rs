@@ -42,7 +42,7 @@ impl EngineContextWithoutSystemManager {
             lua_mgr: LuaManager::new(),
             event_mgr: EventManager::new(),
             entity_event_mgr: EntityEventManager::new().into(),
-            glyph_mgr: GlyphManager::new(64f32, 8usize, 12usize, 0.35f32).into(),
+            glyph_mgr: GlyphManager::new(128f32, 8usize, 48usize, 0.5f32).into(),
             render_mgr: RenderManager::new().into(),
             ui_mgr: UIManager::new().into(),
             ui_event_mgr: UIEventManager::new().into(),

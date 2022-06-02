@@ -20,6 +20,7 @@ pub fn run(
     title: &str,
     width: u32,
     height: u32,
+    resizable: bool,
     asset_base: impl Into<PathBuf>,
     entry_script_path: impl AsRef<Path>,
 ) -> Result<(), EngineError> {
@@ -32,7 +33,7 @@ pub fn run(
             WindowBuilder::new()
                 .with_visible(false)
                 .with_title(title)
-                .with_resizable(false)
+                .with_resizable(resizable)
                 .with_inner_size(LogicalSize::new(width, height)),
             &event_loop,
         )?;
@@ -234,6 +235,13 @@ pub fn run(
 
     emit_diagnostic_info!(format!("engine is up and running."));
 
+    {
+        let screen_mgr = rest.screen_mgr();
+        resize(
+            screen_mgr.physical_width() as u32,
+            screen_mgr.physical_height() as u32,
+        );
+    }
     clear();
     gfx_context.swap_buffers().unwrap();
     gfx_context.window().set_visible(true);
@@ -347,8 +355,8 @@ pub fn run(
                 event: WindowEvent::Resized(inner_size),
                 window_id: id,
             } if id == window_id => {
-                resize(inner_size.width, inner_size.height);
                 rest.screen_mgr_mut().update_size(&inner_size);
+                resize(inner_size.width as u32, inner_size.height as u32);
                 return;
             }
             Event::WindowEvent {
@@ -373,6 +381,13 @@ pub fn run(
             _ => return,
         }
 
+        {
+            let screen_mgr = rest.screen_mgr();
+            resize(
+                screen_mgr.physical_width() as u32,
+                screen_mgr.physical_height() as u32,
+            );
+        }
         clear();
         system_mgr.run(&rest, 0, isize::MAX);
 

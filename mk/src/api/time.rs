@@ -14,6 +14,7 @@ impl LuaApiTable for Time {
         table.set(
             "dt",
             lua.create_function(|lua, _: ()| use_context().time_mgr().dt().to_lua(lua))?,
-        )
+        )?;
+        Ok(())
     }
 }

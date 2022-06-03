@@ -1,6 +1,6 @@
 use super::UILayoutCalculator;
 use crate::api::use_context;
-use crate::component::{Camera, Size, Transform};
+use crate::component::{Camera, Size, Transform, UIScaleMode, UIScaler};
 use crate::structure::Vec2;
 use crate::ui::UIElement;
 use legion::{Entity, EntityStore, IntoQuery};
@@ -160,6 +160,75 @@ impl UIManager {
     }
 
     pub fn update_elements(&mut self) {
+        {
+            let context = use_context();
+            let screen_mgr = context.screen_mgr();
+
+            if screen_mgr.is_dirty() {
+                let elements = self.elements.as_mut_slice();
+                let mut world = context.world_mut();
+                let world = &mut *world;
+                let mut transform_mgr = context.transform_mgr_mut();
+                let transform_mgr = &mut *transform_mgr;
+                <(
+                    &UIScaler,
+                    &Transform,
+                    &mut Size,
+                    &mut crate::component::UIElement,
+                )>::query()
+                .iter_mut(world)
+                .for_each(move |(scaler, transform, size, element)| {
+                    let new_size = match scaler.mode {
+                        UIScaleMode::Constant => scaler.reference_size,
+                        UIScaleMode::Stretch => crate::structure::Size::new(
+                            screen_mgr.width() as f32,
+                            screen_mgr.height() as f32,
+                        ),
+                        UIScaleMode::Fit => {
+                            let screen_width = screen_mgr.width() as f32;
+                            let screen_height = screen_mgr.height() as f32;
+                            let scale = Vec2::new(
+                                screen_width / scaler.reference_size.width,
+                                screen_height / scaler.reference_size.height,
+                            );
+                            let scale = f32::min(scale.x, scale.y);
+                            let new_size = scaler.reference_size * scale;
+                            new_size
+                        }
+                        UIScaleMode::Fill => {
+                            let screen_width = screen_mgr.width() as f32;
+                            let screen_height = screen_mgr.height() as f32;
+                            let scale = Vec2::new(
+                                screen_width / scaler.reference_size.width,
+                                screen_height / scaler.reference_size.height,
+                            );
+                            let scale = f32::max(scale.x, scale.y);
+                            let new_size = scaler.reference_size * scale;
+                            new_size
+                        }
+                        UIScaleMode::MatchWidth => {
+                            let screen_width = screen_mgr.width() as f32;
+                            let scale = screen_width / scaler.reference_size.width;
+                            let new_size = scaler.reference_size * scale;
+                            new_size
+                        }
+                        UIScaleMode::MatchHeight => {
+                            let screen_height = screen_mgr.height() as f32;
+                            let scale = screen_height / scaler.reference_size.height;
+                            let new_size = scaler.reference_size * scale;
+                            new_size
+                        }
+                    };
+                    let transform = transform_mgr.transform_mut(transform.index());
+                    transform.mark_as_dirty();
+                    transform.position = Vec2::new(0f32, 0f32);
+                    size.width = new_size.width;
+                    size.height = new_size.height;
+                    elements[element.index() as usize].mark_as_dirty()
+                });
+            }
+        }
+
         for (index, element) in self.elements.iter_mut().enumerate() {
             if !element.is_dirty() {
                 continue;

@@ -3,7 +3,8 @@ use crate::codegen_traits::LuaApiTable;
 use crate::component::{
     Camera, GlyphRenderer, GlyphRendererConfig, LuaComponentCamera, LuaComponentGlyphRenderer,
     LuaComponentNinePatchRenderer, LuaComponentSpriteRenderer, LuaComponentTilemapRenderer,
-    NinePatchRenderer, Size, SpriteRenderer, TilemapRenderer, Transform, UIElement,
+    LuaComponentUIScaler, NinePatchRenderer, Size, SpriteRenderer, TilemapRenderer, Transform,
+    UIElement, UIScaleMode, UIScaler,
 };
 use crate::render::{
     Color, LuaRcFont, LuaRcShader, LuaRcSprite, LuaRcSpriteNinePatch, LuaRcTilemap,
@@ -28,6 +29,9 @@ pub struct Entity {
     #[lua_readonly]
     #[lua_userfunc(get=lua_get_ui_element)]
     ui_element: PhantomData<UIElement>,
+    #[lua_readonly]
+    #[lua_userfunc(get=lua_get_ui_scaler)]
+    ui_scaler: PhantomData<UIScaler>,
     #[lua_readonly]
     #[lua_userfunc(get=lua_get_camera)]
     camera: PhantomData<LuaComponentCamera>,
@@ -56,6 +60,7 @@ impl Entity {
             transform: PhantomData,
             size: PhantomData,
             ui_element: PhantomData,
+            ui_scaler: PhantomData,
             camera: PhantomData,
             glyph_renderer: PhantomData,
             sprite_renderer: PhantomData,
@@ -101,6 +106,15 @@ impl Entity {
     fn lua_get_ui_element<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
         self.with_entry(|e| e.get_component::<UIElement>().ok().cloned())
             .to_lua(lua)
+    }
+
+    fn lua_get_ui_scaler<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        self.with_entry(|e| {
+            e.get_component::<UIScaler>()
+                .ok()
+                .map(|_| LuaComponentUIScaler::from(self.entity))
+        })
+        .to_lua(lua)
     }
 
     fn lua_get_camera<'lua>(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
@@ -239,6 +253,10 @@ impl LuaApiTable for Entity {
                         .set_order_index(param.order_index);
 
                     entry.add_component(UIElement::new(element));
+                }
+
+                if let Some(param) = param.ui_scaler {
+                    entry.add_component(UIScaler::new(param.mode, param.reference_size));
                 }
 
                 if let Some(param) = param.camera {
@@ -383,6 +401,12 @@ struct UIElementBuildParam {
 }
 
 #[derive(LuaStruct)]
+struct UIScalerBuildParam {
+    pub mode: UIScaleMode,
+    pub reference_size: crate::structure::Size,
+}
+
+#[derive(LuaStruct)]
 struct CameraBuildParam {
     pub layer: Option<crate::render::Layer>,
     pub order: Option<isize>,
@@ -435,6 +459,7 @@ struct EntityBuildParam {
     transform: Option<TransformBuildParam>,
     size: Option<SizeBuildParam>,
     ui_element: Option<UIElementBuildParam>,
+    ui_scaler: Option<UIScalerBuildParam>,
     camera: Option<CameraBuildParam>,
     glyph_renderer: Option<GlyphRendererBuildParam>,
     sprite_renderer: Option<SpriteRendererBuildParam>,

@@ -5,6 +5,7 @@ pub struct ScreenManager {
     width: f64,
     height: f64,
     scale_factor: f64,
+    is_dirty: bool,
 }
 
 impl ScreenManager {
@@ -13,6 +14,7 @@ impl ScreenManager {
             width: width as _,
             height: height as _,
             scale_factor: 1f64,
+            is_dirty: true,
         }
     }
 
@@ -28,6 +30,10 @@ impl ScreenManager {
         self.scale_factor
     }
 
+    pub fn is_dirty(&self) -> bool {
+        self.is_dirty
+    }
+
     pub fn physical_width(&self) -> f64 {
         self.width * self.scale_factor
     }
@@ -40,6 +46,7 @@ impl ScreenManager {
         let size = inner_size.to_logical(self.scale_factor);
         self.width = size.width;
         self.height = size.height;
+        self.is_dirty = true;
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f64, inner_size: &PhysicalSize<u32>) {
@@ -47,5 +54,10 @@ impl ScreenManager {
         self.width = size.width;
         self.height = size.height;
         self.scale_factor = scale_factor;
+        self.is_dirty = true;
+    }
+
+    pub fn reset_dirty(&mut self) {
+        self.is_dirty = false;
     }
 }

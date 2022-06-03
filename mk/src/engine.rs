@@ -199,6 +199,9 @@ pub fn run(
             },
         );
     });
+    system_mgr.register_system(isize::MAX, |context: &EngineContextWithoutSystemManager| {
+        context.screen_mgr_mut().reset_dirty();
+    });
 
     {
         emit_diagnostic_info!(format!("registering asset loaders."));

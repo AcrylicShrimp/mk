@@ -1,8 +1,9 @@
 use crate::codegen_traits::LuaApiTable;
+use codegen::LuaStruct;
 use mlua::prelude::*;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(LuaStruct, Default, Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
@@ -153,30 +154,6 @@ impl Neg for Vec2 {
             x: -self.x,
             y: -self.y,
         }
-    }
-}
-
-// TODO: Implement a macro to generate this (namely, `LuaStruct` maybe?)
-impl<'lua> FromLua<'lua> for Vec2 {
-    #[allow(unused_variables)]
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        match value {
-            LuaValue::Table(value) => Ok(Self {
-                x: value.get("x")?,
-                y: value.get("y")?,
-            }),
-            _ => {
-                return Err(format!("the type {} must be a {}", "Vec2", "table").to_lua_err());
-            }
-        }
-    }
-}
-
-impl<'lua> ToLua<'lua> for Vec2 {
-    fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
-        Ok(LuaValue::Table(
-            lua.create_table_from([("x", self.x), ("y", self.y)])?,
-        ))
     }
 }
 

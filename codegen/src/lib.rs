@@ -1,4 +1,7 @@
+mod lua;
+
 use convert_case::{Case, Casing};
+use lua::lua_struct;
 use proc_macro::TokenStream;
 use proc_macro_error::*;
 use quote::__private::TokenStream as QuoteTokenStream;
@@ -987,4 +990,10 @@ pub fn lua_rc(item: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(LuaStruct)]
+#[proc_macro_error]
+pub fn _lua_struct(item: TokenStream) -> TokenStream {
+    lua_struct(item)
 }

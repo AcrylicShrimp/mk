@@ -9,7 +9,7 @@ use crate::render::{
     Color, LuaRcFont, LuaRcShader, LuaRcSprite, LuaRcSpriteNinePatch, LuaRcTilemap,
 };
 use crate::structure::Vec2;
-use codegen::LuaComponentNoWrapper;
+use codegen::{LuaComponentNoWrapper, LuaStruct};
 use legion::world::Entry;
 use mlua::prelude::*;
 use std::marker::PhantomData;
@@ -339,6 +339,7 @@ impl LuaApiTable for Entity {
     }
 }
 
+#[derive(LuaStruct)]
 struct TransformBuildParam {
     pub parent: Option<Transform>,
     pub position: Option<Vec2>,
@@ -346,105 +347,20 @@ struct TransformBuildParam {
     pub angle: Option<f32>,
 }
 
-impl<'lua> FromLua<'lua> for TransformBuildParam {
-    #[allow(unused_variables)]
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        let table = match value {
-            LuaValue::Table(table) => table,
-            _ => {
-                return Err(
-                    format!("the type {} must be a {}", "TransformBuildParam", "table")
-                        .to_lua_err(),
-                );
-            }
-        };
 
-        Ok(Self {
-            parent: if table.contains_key("parent")? {
-                Some(table.get("parent")?)
-            } else {
-                None
-            },
-            position: if table.contains_key("position")? {
-                Some(table.get("position")?)
-            } else {
-                None
-            },
-            scale: if table.contains_key("scale")? {
-                Some(table.get("scale")?)
-            } else {
-                None
-            },
-            angle: if table.contains_key("angle")? {
-                Some(table.get("angle")?)
-            } else {
-                None
-            },
-        })
-    }
-}
-
+#[derive(LuaStruct)]
 struct UIElementBuildParam {
     pub is_interactible: Option<bool>,
     pub order_index: u32,
 }
 
-impl<'lua> FromLua<'lua> for UIElementBuildParam {
-    #[allow(unused_variables)]
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        let table = match value {
-            LuaValue::Table(table) => table,
-            _ => {
-                return Err(
-                    format!("the type {} must be a {}", "UIElementBuildParam", "table")
-                        .to_lua_err(),
-                );
-            }
-        };
-
-        Ok(Self {
-            is_interactible: if table.contains_key("is_interactible")? {
-                Some(table.get("is_interactible")?)
-            } else {
-                None
-            },
-            order_index: table.get("order_index")?,
-        })
-    }
-}
-
+#[derive(LuaStruct)]
 struct CameraBuildParam {
     pub layer: Option<crate::render::Layer>,
     pub order: Option<isize>,
 }
 
-impl<'lua> FromLua<'lua> for CameraBuildParam {
-    #[allow(unused_variables)]
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        let table = match value {
-            LuaValue::Table(table) => table,
-            _ => {
-                return Err(
-                    format!("the type {} must be a {}", "CameraBuildParam", "table").to_lua_err(),
-                );
-            }
-        };
-
-        Ok(Self {
-            layer: if table.contains_key("layer")? {
-                Some(table.get("layer")?)
-            } else {
-                None
-            },
-            order: if table.contains_key("order")? {
-                Some(table.get("order")?)
-            } else {
-                None
-            },
-        })
-    }
-}
-
+#[derive(LuaStruct)]
 struct GlyphRendererBuildParam {
     pub layer: Option<crate::render::Layer>,
     pub order: Option<isize>,
@@ -458,51 +374,7 @@ struct GlyphRendererBuildParam {
     pub text: Option<String>,
 }
 
-impl<'lua> FromLua<'lua> for GlyphRendererBuildParam {
-    #[allow(unused_variables)]
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        let table = match value {
-            LuaValue::Table(table) => table,
-            _ => {
-                return Err(format!(
-                    "the type {} must be a {}",
-                    "GlyphRendererBuildParam", "table"
-                )
-                .to_lua_err());
-            }
-        };
-
-        Ok(Self {
-            layer: if table.contains_key("layer")? {
-                Some(table.get("layer")?)
-            } else {
-                None
-            },
-            order: if table.contains_key("order")? {
-                Some(table.get("order")?)
-            } else {
-                None
-            },
-            color: if table.contains_key("color")? {
-                Some(table.get("color")?)
-            } else {
-                None
-            },
-            shader: table.get("shader")?,
-            font: table.get("font")?,
-            font_size: table.get("font_size")?,
-            thickness: table.get("thickness")?,
-            smoothness: table.get("smoothness")?,
-            config: table.get("config")?,
-            text: if table.contains_key("text")? {
-                Some(table.get("text")?)
-            } else {
-                None
-            },
-        })
-    }
-}
-
+#[derive(LuaStruct)]
 struct SpriteRendererBuildParam {
     pub layer: Option<crate::render::Layer>,
     pub order: Option<isize>,
@@ -511,42 +383,7 @@ struct SpriteRendererBuildParam {
     pub sprite: LuaRcSprite,
 }
 
-impl<'lua> FromLua<'lua> for SpriteRendererBuildParam {
-    #[allow(unused_variables)]
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        let table = match value {
-            LuaValue::Table(table) => table,
-            _ => {
-                return Err(format!(
-                    "the type {} must be a {}",
-                    "SpriteRendererBuildParam", "table"
-                )
-                .to_lua_err());
-            }
-        };
-
-        Ok(Self {
-            layer: if table.contains_key("layer")? {
-                Some(table.get("layer")?)
-            } else {
-                None
-            },
-            order: if table.contains_key("order")? {
-                Some(table.get("order")?)
-            } else {
-                None
-            },
-            color: if table.contains_key("color")? {
-                Some(table.get("color")?)
-            } else {
-                None
-            },
-            shader: table.get("shader")?,
-            sprite: table.get("sprite")?,
-        })
-    }
-}
-
+#[derive(LuaStruct)]
 struct NinePatchRendererBuildParam {
     pub layer: Option<crate::render::Layer>,
     pub order: Option<isize>,
@@ -557,44 +394,7 @@ struct NinePatchRendererBuildParam {
     pub height: f32,
 }
 
-impl<'lua> FromLua<'lua> for NinePatchRendererBuildParam {
-    #[allow(unused_variables)]
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        let table = match value {
-            LuaValue::Table(table) => table,
-            _ => {
-                return Err(format!(
-                    "the type {} must be a {}",
-                    "NinePatchRendererBuildParam", "table"
-                )
-                .to_lua_err());
-            }
-        };
-
-        Ok(Self {
-            layer: if table.contains_key("layer")? {
-                Some(table.get("layer")?)
-            } else {
-                None
-            },
-            order: if table.contains_key("order")? {
-                Some(table.get("order")?)
-            } else {
-                None
-            },
-            color: if table.contains_key("color")? {
-                Some(table.get("color")?)
-            } else {
-                None
-            },
-            shader: table.get("shader")?,
-            nine_patch: table.get("nine_patch")?,
-            width: table.get("width")?,
-            height: table.get("height")?,
-        })
-    }
-}
-
+#[derive(LuaStruct)]
 struct TilemapRendererBuildParam {
     pub layer: Option<crate::render::Layer>,
     pub order: Option<isize>,
@@ -603,42 +403,7 @@ struct TilemapRendererBuildParam {
     pub tilemap: LuaRcTilemap,
 }
 
-impl<'lua> FromLua<'lua> for TilemapRendererBuildParam {
-    #[allow(unused_variables)]
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        let table = match value {
-            LuaValue::Table(table) => table,
-            _ => {
-                return Err(format!(
-                    "the type {} must be a {}",
-                    "TilemapRendererBuildParam", "table"
-                )
-                .to_lua_err());
-            }
-        };
-
-        Ok(Self {
-            layer: if table.contains_key("layer")? {
-                Some(table.get("layer")?)
-            } else {
-                None
-            },
-            order: if table.contains_key("order")? {
-                Some(table.get("order")?)
-            } else {
-                None
-            },
-            color: if table.contains_key("color")? {
-                Some(table.get("color")?)
-            } else {
-                None
-            },
-            shader: table.get("shader")?,
-            tilemap: table.get("tilemap")?,
-        })
-    }
-}
-
+#[derive(LuaStruct)]
 struct EntityBuildParam {
     name: Option<String>,
     transform: Option<TransformBuildParam>,
@@ -648,61 +413,4 @@ struct EntityBuildParam {
     sprite_renderer: Option<SpriteRendererBuildParam>,
     nine_patch_renderer: Option<NinePatchRendererBuildParam>,
     tilemap_renderer: Option<TilemapRendererBuildParam>,
-}
-
-impl<'lua> FromLua<'lua> for EntityBuildParam {
-    #[allow(unused_variables)]
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        let table = match value {
-            LuaValue::Table(table) => table,
-            _ => {
-                return Err(
-                    format!("the type {} must be a {}", "EntityBuildParam", "table").to_lua_err(),
-                );
-            }
-        };
-
-        Ok(Self {
-            name: if table.contains_key("name")? {
-                Some(table.get("name")?)
-            } else {
-                None
-            },
-            ui_element: if table.contains_key("ui_element")? {
-                Some(table.get("ui_element")?)
-            } else {
-                None
-            },
-            transform: if table.contains_key("transform")? {
-                Some(table.get("transform")?)
-            } else {
-                None
-            },
-            camera: if table.contains_key("camera")? {
-                Some(table.get("camera")?)
-            } else {
-                None
-            },
-            glyph_renderer: if table.contains_key("glyph_renderer")? {
-                Some(table.get("glyph_renderer")?)
-            } else {
-                None
-            },
-            sprite_renderer: if table.contains_key("sprite_renderer")? {
-                Some(table.get("sprite_renderer")?)
-            } else {
-                None
-            },
-            nine_patch_renderer: if table.contains_key("nine_patch_renderer")? {
-                Some(table.get("nine_patch_renderer")?)
-            } else {
-                None
-            },
-            tilemap_renderer: if table.contains_key("tilemap_renderer")? {
-                Some(table.get("tilemap_renderer")?)
-            } else {
-                None
-            },
-        })
-    }
 }

@@ -10,7 +10,7 @@ use std::collections::{btree_map::Entry, BTreeMap};
 pub struct UIManager {
     elements: Vec<UIElement>,
     entities: Vec<Entity>,
-    last_order_indices: Vec<u32>,
+    prev_order_indices: Vec<u32>,
     ordered_indices: BTreeMap<u32, Vec<u32>>,
     removed_indices: Vec<u32>,
 }
@@ -24,21 +24,21 @@ impl UIManager {
         if let Some(index) = self.removed_indices.pop() {
             self.elements[index as usize] = UIElement::default();
             self.entities[index as usize] = entity;
-            self.last_order_indices[index as usize] = 0;
+            self.prev_order_indices[index as usize] = 0;
             return index;
         }
 
         let index = self.elements.len() as u32;
         self.elements.push(UIElement::default());
         self.entities.push(entity);
-        self.last_order_indices.push(0);
+        self.prev_order_indices.push(0);
         index
     }
 
     pub fn dealloc(&mut self, index: u32) {
         if let Entry::Occupied(mut entry) = self
             .ordered_indices
-            .entry(self.last_order_indices[index as usize])
+            .entry(self.prev_order_indices[index as usize])
         {
             if let Some(index) = entry.get().iter().position(|&element| element == index) {
                 entry.get_mut().swap_remove(index);
@@ -159,7 +159,7 @@ impl UIManager {
             }
 
             if let Entry::Occupied(mut entry) =
-                self.ordered_indices.entry(self.last_order_indices[index])
+                self.ordered_indices.entry(self.prev_order_indices[index])
             {
                 if let Some(index) = entry
                     .get()
@@ -179,7 +179,7 @@ impl UIManager {
                 .entry(order_index)
                 .or_default()
                 .push(index as u32);
-            self.last_order_indices[index] = order_index;
+            self.prev_order_indices[index] = order_index;
         }
     }
 }
@@ -189,7 +189,7 @@ impl Default for UIManager {
         Self {
             elements: Vec::with_capacity(1024),
             entities: Vec::with_capacity(1024),
-            last_order_indices: Vec::with_capacity(1024),
+            prev_order_indices: Vec::with_capacity(1024),
             ordered_indices: BTreeMap::new(),
             removed_indices: Vec::with_capacity(1024),
         }

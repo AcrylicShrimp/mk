@@ -3,6 +3,7 @@ mod coroutine;
 mod entity;
 mod event;
 mod lua_manager;
+mod screen;
 mod time;
 
 pub use asset::*;
@@ -10,6 +11,7 @@ pub use coroutine::*;
 pub use entity::*;
 pub use event::*;
 pub use lua_manager::*;
+pub use screen::*;
 pub use time::*;
 
 use crate::codegen_traits::LuaApiTable;
@@ -90,6 +92,7 @@ pub fn lua_api(lua: &Lua) -> LuaResult<LuaTable> {
     register_api_table::<Entity>(lua, &table)?;
     register_api_table::<Event>(lua, &table)?;
     register_api_table::<FontAsset>(lua, &table)?;
+    register_api_table::<Screen>(lua, &table)?;
     register_api_table::<ShaderAsset>(lua, &table)?;
     register_api_table::<SpriteAsset>(lua, &table)?;
     register_api_table::<SpriteAtlasAsset>(lua, &table)?;

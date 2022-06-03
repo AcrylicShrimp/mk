@@ -43,7 +43,7 @@ impl UIElement {
     }
 
     pub fn set_order_index(&mut self, index: u32) {
-        self.flags |= index & 0b0011_1111_1111_1111_1111_1111_1111_1111
+        self.flags |= index.min(0b0011_1111_1111_1111_1111_1111_1111_1111)
     }
 }
 

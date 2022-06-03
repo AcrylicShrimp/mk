@@ -46,14 +46,6 @@ impl System for SizeSystem {
             },
         );
 
-        <(&NinePatchRenderer, &mut Size)>::query().for_each_mut(
-            &mut *world,
-            |(nine_patch_renderer, size)| {
-                size.width = f32::max(size.width, nine_patch_renderer.width);
-                size.height = f32::max(size.height, nine_patch_renderer.height);
-            },
-        );
-
         <(&TilemapRenderer, &mut Size)>::query().for_each_mut(
             &mut *world,
             |(tilemap_renderer, size)| {

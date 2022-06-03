@@ -356,7 +356,7 @@ pub fn run(
                 window_id: id,
             } if id == window_id => {
                 rest.screen_mgr_mut().update_size(&inner_size);
-                resize(inner_size.width as u32, inner_size.height as u32);
+                gfx_context.resize(inner_size);
                 return;
             }
             Event::WindowEvent {
@@ -368,7 +368,8 @@ pub fn run(
                 window_id: id,
             } if id == window_id => {
                 rest.screen_mgr_mut()
-                    .update_scale_factor(scale_factor, &new_inner_size);
+                    .update_scale_factor(scale_factor, new_inner_size);
+                gfx_context.resize(*new_inner_size);
                 return;
             }
             Event::WindowEvent {

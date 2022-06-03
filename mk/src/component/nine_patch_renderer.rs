@@ -11,25 +11,16 @@ pub struct NinePatchRenderer {
     pub shader: Arc<Shader>,
     #[lua_userdata(LuaRcSpriteNinePatch)]
     pub nine_patch: Arc<SpriteNinePatch>,
-    pub width: f32,
-    pub height: f32,
 }
 
 impl NinePatchRenderer {
-    pub fn new(
-        shader: Arc<Shader>,
-        nine_patch: Arc<SpriteNinePatch>,
-        width: f32,
-        height: f32,
-    ) -> Self {
+    pub fn new(shader: Arc<Shader>, nine_patch: Arc<SpriteNinePatch>) -> Self {
         Self {
             layer: Layer::default(),
             order: 0,
             color: Color::white(),
             shader,
             nine_patch,
-            width,
-            height,
         }
     }
 }

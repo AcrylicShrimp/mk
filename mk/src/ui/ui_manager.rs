@@ -1,10 +1,11 @@
-use crate::{
-    api::use_context,
-    component::{Camera, Transform},
-    ui::UIElement,
-};
-use legion::{Entity, EntityStore};
-use std::collections::{btree_map::Entry, BTreeMap};
+use super::UILayoutCalculator;
+use crate::api::use_context;
+use crate::component::{Camera, Size, Transform};
+use crate::structure::Vec2;
+use crate::ui::UIElement;
+use legion::{Entity, EntityStore, IntoQuery};
+use std::collections::btree_map::Entry;
+use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct UIManager {
@@ -13,6 +14,7 @@ pub struct UIManager {
     prev_order_indices: Vec<u32>,
     ordered_indices: BTreeMap<u32, Vec<u32>>,
     removed_indices: Vec<u32>,
+    layout_calculator: UILayoutCalculator,
 }
 
 impl UIManager {
@@ -32,6 +34,7 @@ impl UIManager {
         self.elements.push(UIElement::default());
         self.entities.push(entity);
         self.prev_order_indices.push(0);
+        self.layout_calculator.push();
         index
     }
 
@@ -108,6 +111,10 @@ impl UIManager {
                     Ok(transform) => transform,
                     Err(_) => continue,
                 };
+                let size = match entry.get_component::<Size>() {
+                    Ok(size) => size,
+                    Err(_) => continue,
+                };
                 let transform = transform_mgr.transform(transform.index());
                 let mut world_to_local = [0f32; 9];
                 let mut camera_to_local = [0f32; 6];
@@ -140,8 +147,8 @@ impl UIManager {
                     + camera_to_local[5];
 
                 if 0f32 <= local_x
-                    && local_x <= element.width
-                    && -element.height <= local_y
+                    && local_x <= size.width
+                    && -size.height <= local_y
                     && local_y <= 0f32
                 {
                     return Some(self.entities[index as usize]);
@@ -181,6 +188,13 @@ impl UIManager {
                 .push(index as u32);
             self.prev_order_indices[index] = order_index;
         }
+
+        self.layout_calculator
+            .calculate_all(&self.entities, &mut self.elements);
+
+        for element in &mut self.elements {
+            element.reset_dirty();
+        }
     }
 }
 
@@ -192,6 +206,7 @@ impl Default for UIManager {
             prev_order_indices: Vec::with_capacity(1024),
             ordered_indices: BTreeMap::new(),
             removed_indices: Vec::with_capacity(1024),
+            layout_calculator: UILayoutCalculator::default(),
         }
     }
 }

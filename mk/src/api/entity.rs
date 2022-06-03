@@ -9,6 +9,7 @@ use crate::render::{
     Color, LuaRcFont, LuaRcShader, LuaRcSprite, LuaRcSpriteNinePatch, LuaRcTilemap,
 };
 use crate::structure::Vec2;
+use crate::ui::{UIAnchor, UIMargin};
 use codegen::{LuaComponentNoWrapper, LuaStruct};
 use legion::world::Entry;
 use mlua::prelude::*;
@@ -180,7 +181,6 @@ impl LuaApiTable for Entity {
                 let transform = transform_mgr.alloc(entity);
 
                 entry.add_component(Transform::new(transform));
-                entry.add_component(Size::new(transform));
 
                 transform_mgr.set_name(transform, param.name);
 
@@ -203,14 +203,35 @@ impl LuaApiTable for Entity {
                     }
                 }
 
+                let mut size = Size::new(transform);
+
+                if let Some(param) = param.size {
+                    size.width = param.width;
+                    size.height = param.height;
+                }
+
+                entry.add_component(Size::new(transform));
+
                 if let Some(param) = param.ui_element {
                     let mut ui_mgr = context.ui_mgr_mut();
                     let element = ui_mgr.alloc(entity);
+                    let e = ui_mgr.element_mut(element);
+
+                    if let Some(anchor) = param.anchor {
+                        e.anchor = anchor;
+                    }
+
+                    if let Some(margin) = param.margin {
+                        e.margin = margin;
+                    }
+
+                    if let (Some(position), Some(size)) = (param.position, param.size) {
+                        e.anchor = UIAnchor::new(Vec2::new(0f32, 0f32), Vec2::new(0f32, 0f32));
+                        e.margin = UIMargin::new(0f32, -size.width, 0f32, -size.height);
+                    }
 
                     if let Some(is_interactible) = param.is_interactible {
-                        ui_mgr
-                            .element_mut(element)
-                            .set_interactible(is_interactible);
+                        e.set_interactible(is_interactible);
                     }
 
                     ui_mgr
@@ -282,8 +303,6 @@ impl LuaApiTable for Entity {
                     let mut nine_patch_renderer = NinePatchRenderer::new(
                         <_>::from(param.shader),
                         <_>::from(param.nine_patch),
-                        <_>::from(param.width),
-                        <_>::from(param.height),
                     );
 
                     if let Some(layer) = param.layer {
@@ -347,9 +366,18 @@ struct TransformBuildParam {
     pub angle: Option<f32>,
 }
 
+#[derive(LuaStruct)]
+struct SizeBuildParam {
+    pub width: f32,
+    pub height: f32,
+}
 
 #[derive(LuaStruct)]
 struct UIElementBuildParam {
+    pub anchor: Option<UIAnchor>,
+    pub margin: Option<UIMargin>,
+    pub position: Option<Vec2>,
+    pub size: Option<crate::structure::Size>,
     pub is_interactible: Option<bool>,
     pub order_index: u32,
 }
@@ -390,8 +418,6 @@ struct NinePatchRendererBuildParam {
     pub color: Option<Color>,
     pub shader: LuaRcShader,
     pub nine_patch: LuaRcSpriteNinePatch,
-    pub width: f32,
-    pub height: f32,
 }
 
 #[derive(LuaStruct)]
@@ -407,6 +433,7 @@ struct TilemapRendererBuildParam {
 struct EntityBuildParam {
     name: Option<String>,
     transform: Option<TransformBuildParam>,
+    size: Option<SizeBuildParam>,
     ui_element: Option<UIElementBuildParam>,
     camera: Option<CameraBuildParam>,
     glyph_renderer: Option<GlyphRendererBuildParam>,

@@ -1,7 +1,9 @@
+use crate::ui::{UIAnchor, UIMargin};
+
 #[derive(Debug, Clone)]
 pub struct UIElement {
-    pub width: f32,
-    pub height: f32,
+    pub anchor: UIAnchor,
+    pub margin: UIMargin,
     pub flags: u32,
 }
 
@@ -50,8 +52,8 @@ impl UIElement {
 impl Default for UIElement {
     fn default() -> Self {
         Self {
-            width: 0f32,
-            height: 0f32,
+            anchor: UIAnchor::default(),
+            margin: UIMargin::default(),
             flags: 0b1100_0000_0000_0000_0000_0000_0000_0000,
         }
     }

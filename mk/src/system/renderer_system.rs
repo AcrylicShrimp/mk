@@ -1,10 +1,13 @@
 use crate::component::*;
 use crate::render::*;
+use crate::structure::Vec2;
 use crate::system::System;
 use crate::EngineContextWithoutSystemManager;
 use bumpalo::collections::Vec as BumpVec;
 use bumpalo::vec as bump_vec;
 use bumpalo::Bump;
+use fontdue::layout::HorizontalAlign;
+use fontdue::layout::VerticalAlign;
 use legion::*;
 use std::cmp::{max, min};
 use std::mem::size_of;
@@ -138,9 +141,9 @@ impl System for RendererSystem {
             let mut renderers = bump_vec![in &self.extra_bump];
             let sdf_inset = glyph_mgr.sdf_inset();
 
-            <(&Transform, &mut GlyphRenderer)>::query()
+            <(&Transform, &Size, &mut GlyphRenderer)>::query()
                 .filter(!component::<Diagnostic>())
-                .for_each_mut(&mut rest_world, |(transform, renderer)| {
+                .for_each_mut(&mut rest_world, |(transform, size, renderer)| {
                     if !Layer::has_overlap(camera.layer, renderer.layer) {
                         return;
                     }
@@ -148,6 +151,26 @@ impl System for RendererSystem {
                     let color = renderer.color;
                     let thickness = renderer.thickness;
                     let smoothness = renderer.smoothness;
+                    let layout_size = renderer.compute_size();
+                    let (horizontal_align, vertical_align) = (
+                        match renderer.config().horizontal_align {
+                            HorizontalAlign::Left => 0f32,
+                            HorizontalAlign::Center => 0.5f32,
+                            HorizontalAlign::Right => 1f32,
+                        },
+                        match renderer.config().vertical_align {
+                            VerticalAlign::Top => 0f32,
+                            VerticalAlign::Middle => 0.5f32,
+                            VerticalAlign::Bottom => 1f32,
+                        },
+                    );
+                    let overflow_offset =
+                        Vec2::new((size.width * 0.5) as f32, (size.height * 0.5) as f32);
+                    let alignment_offset = Vec2::new(
+                        (size.width - layout_size.width) * horizontal_align,
+                        (size.height - layout_size.height) * vertical_align,
+                    );
+                    let offset = alignment_offset - overflow_offset;
                     let matrix = transform_mgr.transform_world_matrix(transform.index());
                     let mut texture_and_buffers = bump_vec![in &self.extra_bump];
 
@@ -172,11 +195,15 @@ impl System for RendererSystem {
                             matrix[4],
                             matrix[5],
                             matrix[6]
-                                + matrix[0] * (glyph.x - sdf_inset as f32 * font_width_scale)
-                                + matrix[3] * (glyph.y - sdf_inset as f32 * font_height_scale),
+                                + matrix[0]
+                                    * (glyph.x + offset.x - sdf_inset as f32 * font_width_scale)
+                                + matrix[3]
+                                    * (glyph.y - offset.y - sdf_inset as f32 * font_height_scale),
                             matrix[7]
-                                + matrix[1] * (glyph.x - sdf_inset as f32 * font_width_scale)
-                                + matrix[4] * (glyph.y - sdf_inset as f32 * font_height_scale),
+                                + matrix[1]
+                                    * (glyph.x + offset.x - sdf_inset as f32 * font_width_scale)
+                                + matrix[4]
+                                    * (glyph.y - offset.y - sdf_inset as f32 * font_height_scale),
                             matrix[8],
                             glyph_width,
                             glyph_height,
@@ -284,9 +311,9 @@ impl System for RendererSystem {
 
                     renderers.push((renderer.order, r));
                 });
-            <(&Transform, &mut SpriteRenderer)>::query()
+            <(&Transform, &Size, &mut SpriteRenderer)>::query()
                 .filter(!component::<Diagnostic>())
-                .for_each_mut(&mut rest_world, |(transform, renderer)| {
+                .for_each_mut(&mut rest_world, |(transform, size, renderer)| {
                     if !Layer::has_overlap(camera.layer, renderer.layer) {
                         return;
                     }
@@ -302,11 +329,15 @@ impl System for RendererSystem {
                         matrix[3],
                         matrix[4],
                         matrix[5],
-                        matrix[6],
-                        matrix[7],
+                        matrix[6]
+                            + matrix[0] * (-size.width * 0.5f32)
+                            + matrix[3] * (size.height * 0.5f32),
+                        matrix[7]
+                            + matrix[1] * (-size.width * 0.5f32)
+                            + matrix[4] * (size.height * 0.5f32),
                         matrix[8],
-                        sprite.texel_mapping().width() as f32,
-                        sprite.texel_mapping().height() as f32,
+                        size.width,
+                        size.height,
                         renderer.color.r,
                         renderer.color.g,
                         renderer.color.b,
@@ -380,9 +411,9 @@ impl System for RendererSystem {
                     buffers.push(buffer);
                     renderers.push((renderer.order, r));
                 });
-            <(&Transform, &mut NinePatchRenderer)>::query()
+            <(&Transform, &Size, &mut NinePatchRenderer)>::query()
                 .filter(!component::<Diagnostic>())
-                .for_each_mut(&mut rest_world, |(transform, renderer)| {
+                .for_each_mut(&mut rest_world, |(transform, size, renderer)| {
                     if !Layer::has_overlap(camera.layer, renderer.layer) {
                         return;
                     }
@@ -392,21 +423,21 @@ impl System for RendererSystem {
 
                     let left = nine_patch.sprite_lt().width() as f32;
                     let right = nine_patch.sprite_rt().width() as f32;
-                    let center = f32::max(0f32, renderer.width - left - right);
+                    let center = f32::max(0f32, size.width - left - right);
                     let (left, right) = if 0f32 < center {
                         (left, right)
                     } else {
-                        let ratio = renderer.width / (left + right);
+                        let ratio = size.width / (left + right);
                         (left * ratio, right * ratio)
                     };
 
                     let top = nine_patch.sprite_lt().height() as f32;
                     let bottom = nine_patch.sprite_lb().height() as f32;
-                    let middle = f32::max(0f32, renderer.height - top - bottom);
+                    let middle = f32::max(0f32, size.height - top - bottom);
                     let (top, bottom) = if 0f32 < middle {
                         (top, bottom)
                     } else {
-                        let ratio = renderer.height / (top + bottom);
+                        let ratio = size.height / (top + bottom);
                         (top * ratio, bottom * ratio)
                     };
 
@@ -420,8 +451,12 @@ impl System for RendererSystem {
                                 matrix[3],
                                 matrix[4],
                                 matrix[5],
-                                matrix[6] + matrix[0] * offset_x + matrix[3] * offset_y,
-                                matrix[7] + matrix[1] * offset_x + matrix[4] * offset_y,
+                                matrix[6]
+                                    + matrix[0] * (offset_x - size.width * 0.5f32)
+                                    + matrix[3] * (offset_y + size.height * 0.5f32),
+                                matrix[7]
+                                    + matrix[1] * (offset_x - size.width * 0.5f32)
+                                    + matrix[4] * (offset_y + size.height * 0.5f32),
                                 matrix[8],
                                 width,
                                 height,

@@ -173,11 +173,11 @@ pub fn run(
             },
         );
     });
-    system_mgr.register_system(-10400, |context: &EngineContextWithoutSystemManager| {
-        context.transform_mgr_mut().update_world_matrices();
-    });
-    system_mgr.register_system(-10300, |context: &EngineContextWithoutSystemManager| {
+    system_mgr.register_system(-10600, |context: &EngineContextWithoutSystemManager| {
         context.ui_mgr_mut().update_elements();
+    });
+    system_mgr.register_system(-10500, |context: &EngineContextWithoutSystemManager| {
+        context.transform_mgr_mut().update_world_matrices();
     });
     system_mgr.register_system(0, |context: &EngineContextWithoutSystemManager| {
         context.event_mgr().dispatcher().emit(

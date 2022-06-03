@@ -1,4 +1,5 @@
 use crate::render::{Color, Layer, LuaRcFont, LuaRcShader, Shader};
+use crate::structure::Size;
 use codegen::{Animation, LuaComponent};
 use fontdue::layout::{
     CoordinateSystem, HorizontalAlign, Layout, LayoutSettings, TextStyle, VerticalAlign, WrapStyle,
@@ -9,8 +10,6 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct GlyphRendererConfig {
-    pub max_width: Option<f32>,
-    pub max_height: Option<f32>,
     pub horizontal_align: HorizontalAlign,
     pub vertical_align: VerticalAlign,
     pub wrap_style: WrapStyle,
@@ -20,8 +19,6 @@ pub struct GlyphRendererConfig {
 impl Default for GlyphRendererConfig {
     fn default() -> Self {
         Self {
-            max_width: None,
-            max_height: None,
             horizontal_align: HorizontalAlign::Left,
             vertical_align: VerticalAlign::Top,
             wrap_style: WrapStyle::Word,
@@ -43,16 +40,6 @@ impl<'lua> FromLua<'lua> for GlyphRendererConfig {
         };
 
         Ok(Self {
-            max_width: if table.contains_key("max_width")? {
-                table.get("max_width")?
-            } else {
-                None
-            },
-            max_height: if table.contains_key("max_height")? {
-                table.get("max_height")?
-            } else {
-                None
-            },
             horizontal_align: if table.contains_key("horizontal_align")? {
                 match table.get::<_, String>("horizontal_align")?.as_str() {
                     "left" => HorizontalAlign::Left,
@@ -112,8 +99,6 @@ impl<'lua> FromLua<'lua> for GlyphRendererConfig {
 impl<'lua> ToLua<'lua> for GlyphRendererConfig {
     fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
         let table = lua.create_table()?;
-        table.set("max_width", self.max_width)?;
-        table.set("max_height", self.max_height)?;
         table.set(
             "horizontal_align",
             match self.horizontal_align {
@@ -239,8 +224,8 @@ impl GlyphRenderer {
         self.layout.reset(&LayoutSettings {
             x: 0f32,
             y: 0f32,
-            max_width: self.config.max_width,
-            max_height: self.config.max_height,
+            max_width: None,
+            max_height: None,
             horizontal_align: self.config.horizontal_align,
             vertical_align: self.config.vertical_align,
             wrap_style: self.config.wrap_style,
@@ -259,6 +244,16 @@ impl GlyphRenderer {
             &[self.font.as_ref()],
             &TextStyle::new(self.text.as_str(), self.font_size, 0),
         );
+    }
+
+    pub fn compute_size(&self) -> Size {
+        let mut width = 0f32;
+
+        for glyph in self.layout.glyphs() {
+            width = width.max(glyph.x + glyph.width as f32);
+        }
+
+        Size::new(width, self.layout.height())
     }
 
     fn lua_set_font(&mut self, value: LuaValue, lua: &Lua) -> LuaResult<()> {
